@@ -9,8 +9,6 @@
 
 A brutally difficult precision platformer where invisible spikes appear with **NO WARNING**, platforms vanish when you step on them, and fake goals kill you. Built with pure evil intent using Pygame and OOP principles.
 
-![Game Screenshot](https://via.placeholder.com/800x400/1a1a2e/ffffff?text=Don%27t+Even+Bother+-+Pure+Evil+Edition)
-
 ## 🔥 Features
 
 - **10 Unique Levels**: Each with progressively harder difficulty and unique themes
