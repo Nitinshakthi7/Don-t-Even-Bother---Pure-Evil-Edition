@@ -1,25 +1,32 @@
+# I am adding comments for me to easily understand the codes
+
 import pygame
 import os
 
+# Get the screen size from the user's display
 try:
     pygame.init()
     display_info = pygame.display.Info()
-    SCREEN_WIDTH = display_info.current_w
-    SCREEN_HEIGHT = display_info.current_h
+    SCREEN_WIDTH = display_info.current_w  # Full screen width
+    SCREEN_HEIGHT = display_info.current_h  # Full screen height
 except pygame.error:
+    # If pygame fails, use default HD resolution
     SCREEN_WIDTH = 1920
     SCREEN_HEIGHT = 1080
 
-
+# Game window size (smaller than screen for scaling)
 GAME_WIDTH = 800
 GAME_HEIGHT = 600
 
-FPS = 60
-TITLE = "Don't Even Bother - PURE EVIL"
+# Basic game settings
+FPS = 60  # Frames per second
+TITLE = "Don't Even Bother - PURE EVIL"  # Game window title
 
-BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-ASSETS_PATH = os.path.join(BASE_PATH, "assets")
+# File paths for loading game assets
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))  # Current folder
+ASSETS_PATH = os.path.join(BASE_PATH, "assets")  # Assets folder path
 
+# Color definitions using RGB values (Red, Green, Blue)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (220, 20, 60)
@@ -37,44 +44,47 @@ LIGHT_GRAY = (192, 192, 192)
 CYAN = (0, 255, 255)
 PINK = (255, 105, 180)
 
-GRAVITY = 2500
-PLAYER_SPEED = 300
-JUMP_FORCE = -650
-ACCELERATION = 3000
-DECELERATION = 2200
+# Player movement and physics settings
+GRAVITY = 2500  # How fast player falls down
+PLAYER_SPEED = 300  # Maximum speed player can move
+JUMP_FORCE = -650  # How strong the jump is (negative = upward)
+ACCELERATION = 3000  # How fast player speeds up
+DECELERATION = 2200  # How fast player slows down
 
+# Player character size in pixels
 PLAYER_WIDTH = 32
 PLAYER_HEIGHT = 32
 
-# REVERTED: Back to original difficulty (visual enhancements kept)
-FAKE_PLATFORM_DELAY_MIN = 0.2  # Original value
-FAKE_PLATFORM_DELAY_MAX = 0.6  # Original value
-SAW_SPEED_MULTIPLIER = 1.0  # Original speed (no multiplier)
-INVISIBLE_SPIKE_REVEAL_DISTANCE = 60  # Original reveal distance
-NARROW_GAP_MIN_HEIGHT = 30  # Original gap height
+# Trap difficulty settings
+FAKE_PLATFORM_DELAY_MIN = 0.2  # Minimum time before fake platform breaks
+FAKE_PLATFORM_DELAY_MAX = 0.6  # Maximum time before fake platform breaks
+SAW_SPEED_MULTIPLIER = 1.0  # How fast saws move (1.0 = normal speed)
+INVISIBLE_SPIKE_REVEAL_DISTANCE = 60  # How close player must be to see spikes
+NARROW_GAP_MIN_HEIGHT = 30  # Smallest gap height player can fit through
 
-# NEW: Particle system constants
-PARTICLE_LIFETIME_MIN = 0.3
-PARTICLE_LIFETIME_MAX = 1.2
-PARTICLE_COUNT_DEATH = 25
-PARTICLE_COUNT_TRAP = 15
-PARTICLE_COUNT_PLATFORM_CRUMBLE = 30
-PARTICLE_GRAVITY = 600
+# Particle effects settings (for visual flair)
+PARTICLE_LIFETIME_MIN = 0.3  # How long particles last (minimum)
+PARTICLE_LIFETIME_MAX = 1.2  # How long particles last (maximum)
+PARTICLE_COUNT_DEATH = 25  # Number of particles when player dies
+PARTICLE_COUNT_TRAP = 15  # Number of particles for trap effects
+PARTICLE_COUNT_PLATFORM_CRUMBLE = 30  # Particles when platform breaks
+PARTICLE_GRAVITY = 600  # How fast particles fall
 
-# NEW: Visual effect constants
-SCREEN_SHAKE_INTENSITY = 15  # Increased from 12
-SCREEN_SHAKE_DURATION = 0.4  # Increased from 0.35
-DEATH_FLASH_DURATION = 0.15
-DEATH_FLASH_COLOR = (180, 0, 0, 100)
-CAMERA_SMOOTHNESS = 12  # Increased from 10
+# Visual effects for dramatic moments
+SCREEN_SHAKE_INTENSITY = 15  # How violent the screen shake is
+SCREEN_SHAKE_DURATION = 0.4  # How long screen shakes
+DEATH_FLASH_DURATION = 0.15  # Red flash duration when dying
+DEATH_FLASH_COLOR = (180, 0, 0, 100)  # Red color with transparency
+CAMERA_SMOOTHNESS = 12  # How smoothly camera follows player
 
-# NEW: UI Animation constants
-BUTTON_HOVER_SCALE = 1.08
-BUTTON_PRESS_SCALE = 0.95
-BUTTON_SHADOW_OFFSET = 5
-TITLE_PULSE_SPEED = 2.0
-MENU_PARTICLE_COUNT = 50
+# Menu and UI animation settings
+BUTTON_HOVER_SCALE = 1.08  # How much buttons grow when hovered
+BUTTON_PRESS_SCALE = 0.95  # How much buttons shrink when clicked
+BUTTON_SHADOW_OFFSET = 5  # Shadow distance for buttons
+TITLE_PULSE_SPEED = 2.0  # How fast title pulses
+MENU_PARTICLE_COUNT = 50  # Floating particles in menu
 
+# Mean messages shown when player dies
 DEATH_MESSAGES = [
     "Did you even try?", "My grandma is better", "Just quit already", "Pathetic",
     "Are you even trying?", "LOL", "Git gud scrub", "Skill issue detected",
@@ -85,7 +95,6 @@ DEATH_MESSAGES = [
     "Pro tip: Try not dying next time.", "Was that your strategy, or a cry for help?",
     "You make losing look effortless!", "Achievement unlocked: Instant Regret.",
     "Respawning... because we both know you'll die again.",
-    # NEW: More brutal messages
     "A rock could do better", "Uninstall. Now.", "Your keyboard deserves better",
     "Frame-perfect fail", "Trash gameplay detected", "Stop embarrassing yourself",
     "This is why you have no friends", "My cat plays better blindfolded",
