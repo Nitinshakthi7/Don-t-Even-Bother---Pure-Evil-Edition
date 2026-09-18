@@ -107,10 +107,12 @@ class UIManager:
     def _create_buttons(self):
         """Create buttons for the main menu and level select grid."""
         center_x = SCREEN_WIDTH // 2
+        # Keep the first button clear of the subtitle (drawn at y=260) on short screens
+        menu_top = max(SCREEN_HEIGHT // 2 - 100, 340)
         self.menu_buttons = [
-            Button(center_x, SCREEN_HEIGHT // 2 - 100, 250, 70, "PLAY", asset_manager=self.asset_manager),
-            Button(center_x, SCREEN_HEIGHT // 2, 250, 70, "SETTINGS", asset_manager=self.asset_manager),
-            Button(center_x, SCREEN_HEIGHT // 2 + 100, 250, 70, "EXIT", asset_manager=self.asset_manager),
+            Button(center_x, menu_top, 250, 70, "PLAY", asset_manager=self.asset_manager),
+            Button(center_x, menu_top + 100, 250, 70, "SETTINGS", asset_manager=self.asset_manager),
+            Button(center_x, menu_top + 200, 250, 70, "EXIT", asset_manager=self.asset_manager),
         ]
 
         self.level_buttons = []
