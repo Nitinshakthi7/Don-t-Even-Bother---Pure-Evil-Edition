@@ -23,7 +23,7 @@ from economy import clear_payout, total_of, death_payout         # noqa: E402
 import cosmetics                                                 # noqa: E402
 import achievements                                              # noqa: E402
 import ghosts                                                    # noqa: E402
-from settings import PAYOUT, DEATH_PAYOUT_CAP                    # noqa: E402
+from settings import PAYOUT, DEATH_PAYOUT_CAP, MAX_NAME, NAME_TAUNTS  # noqa: E402
 
 KNOWN_CHARS = set(".#~PGXKB^v<>hcxi123456789eSmuoRUTY{}Ik")
 
@@ -450,6 +450,36 @@ class TestGhosts(unittest.TestCase):
             watched.events.clear()
         self.assertEqual((alone.player.x, alone.player.y, alone.state),
                          (watched.player.x, watched.player.y, watched.state))
+
+
+class TestPlayerName(unittest.TestCase):
+    """The name exists so the narrator can use it against you."""
+
+    def _save(self):
+        return SaveManager(19, path=os.path.join(tempfile.mkdtemp(), "save.json"))
+
+    def test_a_name_is_kept_and_trimmed(self):
+        save = self._save()
+        self.assertEqual(save.player_name, "")
+        save.set_name("   Nitin   ")
+        self.assertEqual(save.player_name, "Nitin")
+
+    def test_a_silly_long_name_is_cut_down(self):
+        save = self._save()
+        save.set_name("A" * 200)
+        self.assertLessEqual(len(save.player_name), MAX_NAME)
+
+    def test_the_name_survives_a_reload(self):
+        save = self._save()
+        save.set_name("Nitin")
+        again = SaveManager(19, path=save.path)
+        self.assertEqual(again.player_name, "Nitin")
+
+    def test_every_name_taunt_has_somewhere_to_put_the_name(self):
+        for line in NAME_TAUNTS:
+            with self.subTest(line=line):
+                self.assertIn("{name}", line)
+                self.assertIn("Nitin", line.format(name="Nitin"))
 
 
 class TestClimbLayout(unittest.TestCase):

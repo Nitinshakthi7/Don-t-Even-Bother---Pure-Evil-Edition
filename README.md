@@ -94,6 +94,9 @@ Progress is saved separately for each mode.
   - squash & stretch
 - **Game feel:** hit-stop and screen shake on death, blood that stains the level, and death markers.
 - **Full front-end:**
+  - a seven-item title menu: New Game, Continue, Play, Skins, Settings, Credits, Quit
+  - **name entry** on a new game - the narrator uses it against you about a quarter of the time
+  - a Play screen holding Campaign, Race the Bot and Story Mode (locked)
   - the "I dare you" difficulty screen
   - act title cards
   - act-based level select with ranks and best times

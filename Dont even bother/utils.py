@@ -7,7 +7,7 @@ import os
 import random
 
 import settings
-from settings import (DEFAULT_SETTINGS, VIRTUAL_W, VIRTUAL_H, CAMERA_LOOKAHEAD,
+from settings import (DEFAULT_SETTINGS, MAX_NAME, VIRTUAL_W, VIRTUAL_H, CAMERA_LOOKAHEAD,
                       CAMERA_SMOOTH, RANKS)
 
 
@@ -104,6 +104,7 @@ class SaveManager:
     def _fresh_extras():
         """Everything that is not campaign progress: currency, cosmetics, records."""
         return {
+            "player_name": "",                # what the narrator calls you
             "spite": 0,                       # the currency, spent on cosmetics
             "cosmetics": {"unlocked": ["default"], "equipped": "default"},
             "achievements": {},               # id -> True once earned
@@ -229,6 +230,15 @@ class SaveManager:
             causes[cause] = causes.get(cause, 0) + 1
         self.dirty = True
         return self.data["total_deaths"]
+
+    # ------------------------------------------------------------------ name
+    @property
+    def player_name(self):
+        return self.data.get("player_name", "")
+
+    def set_name(self, name):
+        self.data["player_name"] = name.strip()[:MAX_NAME]
+        self.save()
 
     # -------------------------------------------------------------- currency
     @property

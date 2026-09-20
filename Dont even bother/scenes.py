@@ -12,7 +12,8 @@ from settings import (CURRENCY, VIRTUAL_W, VIRTUAL_H, FIXED_DT, MAX_STEPS_PER_FR
                       THEMES, GAME_TITLE, GAME_SUBTITLE, STUDIO_NAME, DEVELOPER_NAME, VERSION, PAPER, MUTED, DIM, INK,
                       WHITE, BLOOD, DARK_BLOOD, EMBER, GOLD, TOXIC, PLAYER_BODY, PLAYER_SCARF,
                       TAUNTS_GENERAL, TAUNTS_BY_CAUSE, MILESTONES, RANK_COLOURS, MAX_DEATH_MARKERS, NIGHT,
-                      SPOT_TAUNTS, MODE_TAUNTS, RETURN_LINES, DIFFICULTIES, ACTS)
+                      SPOT_TAUNTS, MODE_TAUNTS, RETURN_LINES, DIFFICULTIES, ACTS,
+                      NAME_TAUNTS, NAME_TAUNT_CHANCE, MAX_NAME)
 from graphics import (draw_text, render_text, panel, dim, draw_skull, draw_lock, draw_clock, Background,
                       glow_circle)
 from particles import ParticleSystem, AmbientField
@@ -183,19 +184,18 @@ class TitleScene(Scene):
         self.cam = 0.0
         save = game.save
         has_progress = save.mode["unlocked"] > 1 or save.data["total_deaths"] > 0
-        play_label = "CONTINUE" if has_progress else "PLAY"
-        mode_label = f"MODE: {DIFFICULTIES[save.difficulty]['label']}" if save.difficulty_chosen else "CHOOSE MODE"
-        self.menu = Menu([
-            MenuItem(play_label, "play"),
-            MenuItem("SELECT LEVEL", "levels"),
-            MenuItem(mode_label, "difficulty"),
-            MenuItem("RACE THE BOT", "race"),
+        items = [MenuItem("NEW GAME", "new")]
+        if has_progress:
+            items.append(MenuItem("CONTINUE", "play"))
+        items += [
+            MenuItem("PLAY", "play_menu"),
             MenuItem("SKINS", "skins"),
-            MenuItem("STORY MODE", "story", enabled=False, hint="coming soon"),
             MenuItem("SETTINGS", "settings"),
             MenuItem("CREDITS", "credits"),
             MenuItem("QUIT", "quit"),
-        ], center=(VIRTUAL_W // 2, 490), spacing=54, width=400, size=34)
+        ]
+        self.has_progress = has_progress
+        self.menu = Menu(items, center=(VIRTUAL_W // 2, 496), spacing=52, width=400, size=34)
         self.confirm = None
         self.glitch = 0.0
         self.next_glitch = 2.5
@@ -240,14 +240,13 @@ class TitleScene(Scene):
                 self.game.start_level(self.game.continue_level())
             else:
                 self.game.scenes.switch(DifficultyScene(self.game))
-        elif action == "difficulty":
-            self.game.scenes.switch(DifficultyScene(self.game, from_title=True))
-        elif action == "levels":
-            self.game.scenes.switch(LevelSelectScene(self.game))
+        elif action == "new":
+            self.game.scenes.switch(NewGameScene(self.game) if self.has_progress
+                                    else NameEntryScene(self.game))
+        elif action == "play_menu":
+            self.game.scenes.switch(PlayScene(self.game))
         elif action == "skins":
             self.game.scenes.switch(SkinsScene(self.game))
-        elif action == "race":
-            self.game.scenes.switch(RaceSelectScene(self.game))
         elif action == "settings":
             self.game.scenes.push(SettingsScene(self.game))
         elif action == "credits":
@@ -309,9 +308,10 @@ class DifficultyScene(Scene):
                    "Locked. Even the narrator hasn't read it.",
                    "Soon. Assuming you survive the other two."]
 
-    def __init__(self, game, from_title=False):
+    def __init__(self, game, from_title=False, start_at=None):
         super().__init__(game)
         self.from_title = from_title
+        self.start_at = start_at
         self.bg = Background(THEMES["abyss"], seed=31)
         self.embers = AmbientField(VIRTUAL_W, VIRTUAL_H, (255, 90, 60), count=80, seed=12)
         self.choice = 1 if not game.save.difficulty_chosen else (1 if game.save.difficulty == "brutal" else 0)
@@ -334,7 +334,7 @@ class DifficultyScene(Scene):
         if self.from_title:
             self.game.scenes.switch(TitleScene(self.game))
         else:
-            self.game.start_level(self.game.continue_level())
+            self.game.start_level(self.start_at or self.game.continue_level())
 
     def update(self, dt, events):
         super().update(dt, events)
@@ -635,6 +635,168 @@ class SkinsScene(Scene):
                   (VIRTUAL_W // 2, VIRTUAL_H - 38), 18, DIM, bold=True)
         if self.flash > 0:
             dim(surface, int(80 * self.flash), GOLD)
+
+
+# ================================================================== starting over
+class NewGameScene(Scene):
+    """Asked before a new game wipes anything, because a save is hard-won here."""
+
+    music = "menu"
+
+    def __init__(self, game):
+        super().__init__(game)
+        self.bg = Background(THEMES["abyss"], seed=71)
+        self.menu = Menu([
+            MenuItem("KEEP MY PROGRESS", "keep"),
+            MenuItem("WIPE IT ALL AND START FRESH", "wipe"),
+            MenuItem("BACK", "back"),
+        ], center=(VIRTUAL_W // 2, 430), spacing=58, width=620, size=30)
+
+    def update(self, dt, events):
+        super().update(dt, events)
+        controls, audio = self.game.controls, self.game.audio
+        action = self.menu.update(dt, controls, events, audio)
+        if action == "keep":
+            self.game.scenes.switch(NameEntryScene(self.game))
+        elif action == "wipe":
+            name = self.game.save.player_name
+            self.game.save.reset_progress()
+            self.game.save.set_name(name)
+            audio.play("slam", 0.8)
+            self.game.scenes.switch(NameEntryScene(self.game))
+        elif action == "back" or controls.consume("back"):
+            audio.play("ui_back")
+            self.game.scenes.switch(TitleScene(self.game))
+
+    def draw(self, surface):
+        self.bg.draw(surface, self.time * 12)
+        dim(surface, 170)
+        save = self.game.save
+        draw_text(surface, "YOU ALREADY HAVE A GAME", (VIRTUAL_W // 2, 190), 48, PAPER, "display", shadow=INK)
+        draw_text(surface, f"{save.data['total_deaths']} deaths and "
+                           f"{sum(1 for lv in self.game.levels if save.level_stats(lv.number)['completed'])} "
+                           f"levels cleared are sitting in that save.",
+                  (VIRTUAL_W // 2, 248), 22, MUTED)
+        draw_text(surface, "Wiping clears levels, times and awards. Skins and spite go too.",
+                  (VIRTUAL_W // 2, 286), 19, DIM, bold=True)
+        self.menu.draw(surface)
+
+
+# ================================================================== who are you
+class NameEntryScene(Scene):
+    """Asks what to call you. The narrator will use it, which is the whole point."""
+
+    music = "menu"
+    PROMPTS = ["So the narrator knows who to blame.",
+               "It will be used against you.",
+               "Leave it blank if you're shy."]
+
+    def __init__(self, game, on_done=None):
+        super().__init__(game)
+        self.bg = Background(THEMES["abyss"], seed=63)
+        self.text = game.save.player_name
+        self.caret = 0.0
+        self.prompt = random.choice(self.PROMPTS)
+        self.on_done = on_done or (lambda: self.game.scenes.switch(DifficultyScene(self.game, start_at=1)))
+
+    def _accept(self):
+        self.game.save.set_name(self.text)
+        self.game.audio.play("ui_select")
+        self.on_done()
+
+    def update(self, dt, events):
+        super().update(dt, events)
+        self.caret = (self.caret + dt) % 1.0
+        controls, audio = self.game.controls, self.game.audio
+        for e in events:
+            if e.type != pygame.KEYDOWN:
+                continue
+            if e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self._accept()
+                return
+            if e.key == pygame.K_ESCAPE:
+                audio.play("ui_back")
+                self.game.scenes.switch(TitleScene(self.game))
+                return
+            if e.key == pygame.K_BACKSPACE:
+                if self.text:
+                    self.text = self.text[:-1]
+                    audio.play("ui_move", 0.5)
+                continue
+            char = e.unicode
+            if char and char.isprintable() and len(self.text) < MAX_NAME:
+                self.text += char
+                audio.play("ui_move", 0.4)
+        if controls.consume("confirm"):
+            self._accept()
+
+    def draw(self, surface):
+        self.bg.draw(surface, self.time * 12)
+        dim(surface, 170)
+        draw_text(surface, "WHAT DO WE CALL YOU?", (VIRTUAL_W // 2, 210), 52, PAPER, "display", shadow=INK)
+        draw_text(surface, self.prompt, (VIRTUAL_W // 2, 262), 22, MUTED)
+        box = pygame.Rect(0, 0, 560, 96)
+        box.center = (VIRTUAL_W // 2, 380)
+        panel(surface, box, fill=(18, 14, 24, 240), border=(*GOLD, 200), width=3)
+        shown = self.text if self.text else ""
+        draw_text(surface, shown, (box.centerx, box.centery), 44, PAPER, "display")
+        if not self.text:
+            draw_text(surface, "nobody", (box.centerx, box.centery), 40, DIM, "display")
+        if self.caret < 0.5:
+            width = render_text(shown, 44, PAPER, "display").get_width() if shown else 0
+            cx = box.centerx + width // 2 + 12
+            pygame.draw.rect(surface, GOLD, (cx, box.centery - 22, 4, 44))
+        draw_text(surface, f"{len(self.text)} / {MAX_NAME}", (box.right - 16, box.bottom - 14), 16, DIM,
+                  bold=True, anchor="midright")
+        draw_text(surface, "TYPE a name     ENTER  continue     ESC  back",
+                  (VIRTUAL_W // 2, VIRTUAL_H - 60), 20, DIM, bold=True)
+
+
+# ================================================================== how to play
+class PlayScene(Scene):
+    """The three ways to play, and the difficulty that applies to them."""
+
+    music = "menu"
+
+    def __init__(self, game):
+        super().__init__(game)
+        self.bg = Background(THEMES["neon"], seed=55)
+        save = game.save
+        label = DIFFICULTIES[save.difficulty]["label"]
+        self.menu = Menu([
+            MenuItem("CAMPAIGN", "campaign", hint="19 levels, 3 acts"),
+            MenuItem("RACE THE BOT", "race", hint="beat the solver's time"),
+            MenuItem("STORY MODE", "story", enabled=False, hint="coming soon"),
+            MenuItem(f"DIFFICULTY: {label}", "difficulty"),
+            MenuItem("BACK", "back"),
+        ], center=(VIRTUAL_W // 2, 400), spacing=62, width=560, size=34, align="split")
+
+    def update(self, dt, events):
+        super().update(dt, events)
+        controls, audio = self.game.controls, self.game.audio
+        action = self.menu.update(dt, controls, events, audio)
+        if action == "campaign":
+            self.game.scenes.switch(LevelSelectScene(self.game))
+        elif action == "race":
+            self.game.scenes.switch(RaceSelectScene(self.game))
+        elif action == "difficulty":
+            self.game.scenes.switch(DifficultyScene(self.game, from_title=True))
+        elif action == "back" or controls.consume("back"):
+            audio.play("ui_back")
+            self.game.scenes.switch(TitleScene(self.game))
+
+    def draw(self, surface):
+        self.bg.draw(surface, self.time * 14)
+        dim(surface, 160)
+        draw_text(surface, "HOW DO YOU WANT TO SUFFER?", (VIRTUAL_W // 2, 150), 50, PAPER, "display",
+                  shadow=INK)
+        self.menu.draw(surface)
+        save = self.game.save
+        done = sum(1 for lv in self.game.levels if save.level_stats(lv.number)["completed"])
+        draw_text(surface, f"{done} of {len(self.game.levels)} levels cleared on "
+                           f"{DIFFICULTIES[save.difficulty]['label']}",
+                  (VIRTUAL_W // 2, VIRTUAL_H - 70), 20, MUTED)
+        draw_text(surface, "ENTER  choose     ESC  back", (VIRTUAL_W // 2, VIRTUAL_H - 38), 18, DIM, bold=True)
 
 
 # ================================================================== act title card
@@ -1044,6 +1206,9 @@ class GameScene(Scene):
         here = sum(1 for mx, my in self.markers if abs(mx - x) < 60 and abs(my - y) < 60)
         if here in SPOT_TAUNTS:
             return random.choice(SPOT_TAUNTS[here])
+        name = self.game.save.player_name
+        if name and random.random() < NAME_TAUNT_CHANCE:
+            return random.choice(NAME_TAUNTS).format(name=name)
         roll = random.random()
         if roll < 0.15:
             pool = MODE_TAUNTS[self.difficulty]

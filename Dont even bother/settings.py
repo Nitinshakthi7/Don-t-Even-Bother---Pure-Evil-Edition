@@ -77,6 +77,24 @@ ACTS = {
     3: {"name": "ACT III", "title": "THE CLIMB", "tagline": "Every step up is a step you can lose."},
 }
 
+# ---------------------------------------------------------------- the player
+MAX_NAME = 12
+# Used when the player has told us their name. "{name}" is filled in. These are
+# kept apart from the other pools so a name never turns up twice in one line.
+NAME_TAUNTS = [
+    "{name}, that was pathetic.",
+    "Nice one, {name}.",
+    "{name}. Honestly.",
+    "Was that on purpose, {name}?",
+    "{name} is having a hard time.",
+    "Try reading the level, {name}.",
+    "Somewhere, {name}'s family is watching.",
+    "{name}, the door is THAT way.",
+    "This is the part where {name} gives up.",
+    "{name} versus a rectangle. The rectangle is winning.",
+]
+NAME_TAUNT_CHANCE = 0.28
+
 # ---------------------------------------------------------------- economy
 # Spite is earned by playing and spent on cosmetics. It never touches the
 # rules of the game: nothing you buy makes a level easier.
