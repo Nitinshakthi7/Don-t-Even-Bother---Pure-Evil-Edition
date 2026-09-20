@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Pygame](https://img.shields.io/badge/pygame-2.1+-green.svg)](https://www.pygame.org/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-red.svg)](LICENSE)
 
 > A merciless troll-platformer where the floor lies, the doors lie, and the narrator definitely lies.
 > Every level is beatable. We have a robot that proves it, in both difficulties.
@@ -181,10 +181,12 @@ python dev_tools/level_solver.py                     # the bot plays every level
 python dev_tools/level_solver.py --brutal            # ...and on Brutal
 python dev_tools/level_solver.py --verify --brutal   # re-check the saved winning replays
 python dev_tools/render_replay.py 18 --brutal        # turn a winning run into a GIF
+python dev_tools/make_uml.py                         # redraw the class diagram (needs matplotlib)
 ```
 
 Because the simulation is deterministic, the solver searches the real game with best-first (A*-style) search. It saves each winning input sequence to `dev_tools/solutions/<difficulty>/`, and the tests replay every one of them. Long levels give the bot route hints at the end of each chunk.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+All rights reserved. This code is proprietary - see [LICENSE](LICENSE).
+It is shared for viewing and assessment only, and may not be reused or redistributed.
