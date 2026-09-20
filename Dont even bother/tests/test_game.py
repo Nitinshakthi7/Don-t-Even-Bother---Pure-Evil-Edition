@@ -21,6 +21,7 @@ from player import wants_jump                                    # noqa: E402
 from utils import SaveManager, rank_for_deaths, format_time      # noqa: E402
 from economy import clear_payout, total_of, death_payout         # noqa: E402
 import cosmetics                                                 # noqa: E402
+import achievements                                              # noqa: E402
 from settings import PAYOUT, DEATH_PAYOUT_CAP                    # noqa: E402
 
 KNOWN_CHARS = set(".#~PGXKB^v<>hcxi123456789eSmuoRUTY{}Ik")
@@ -326,6 +327,81 @@ class TestSkins(unittest.TestCase):
             dressed.events.clear()
         self.assertEqual((plain.player.x, plain.player.y, plain.player.vx, plain.player.vy),
                          (dressed.player.x, dressed.player.y, dressed.player.vx, dressed.player.vy))
+
+
+class TestAchievements(unittest.TestCase):
+    """Badges are earned once, hand over their skin, and never fire early."""
+
+    def _save(self):
+        return SaveManager(19, path=os.path.join(tempfile.mkdtemp(), "save.json"))
+
+    def test_a_fresh_save_has_earned_nothing(self):
+        save = self._save()
+        self.assertEqual(achievements.check(save, 19), [])
+        self.assertEqual(achievements.earned(save), set())
+
+    def test_deaths_unlock_in_order(self):
+        save = self._save()
+        save.data["total_deaths"] = 1
+        self.assertEqual([a.id for a in achievements.check(save, 19)], ["first_blood"])
+        save.data["total_deaths"] = 100
+        self.assertEqual([a.id for a in achievements.check(save, 19)], ["deaths_100"])
+        self.assertTrue(achievements.has(save, "first_blood"))
+
+    def test_an_award_hands_over_its_skin(self):
+        save = self._save()
+        save.data["total_deaths"] = 1000
+        achievements.check(save, 19)
+        self.assertTrue(achievements.has(save, "deaths_1000"))
+        self.assertIn("gravedigger", cosmetics.unlocked_ids(save))
+
+    def test_nothing_is_awarded_twice(self):
+        save = self._save()
+        save.data["total_deaths"] = 5000
+        first = achievements.check(save, 19)
+        self.assertTrue(first)
+        self.assertEqual(achievements.check(save, 19), [])
+
+    def test_connoisseur_needs_every_cause(self):
+        save = self._save()
+        causes = list(achievements.ALL_CAUSES)
+        save.data["death_causes"] = {c: 1 for c in causes[:-1]}
+        achievements.check(save, 19)
+        self.assertFalse(achievements.has(save, "every_cause"))
+        save.data["death_causes"][causes[-1]] = 1
+        achievements.check(save, 19)
+        self.assertTrue(achievements.has(save, "every_cause"))
+
+    def test_act_one_on_brutal_is_not_earned_by_normal(self):
+        save = self._save()
+        for n in range(1, 11):
+            save.data["modes"]["normal"]["levels"][str(n)] = {"completed": True}
+        achievements.check(save, 19)
+        self.assertFalse(achievements.has(save, "act1_brutal"))
+        for n in range(1, 11):
+            save.data["modes"]["brutal"]["levels"][str(n)] = {"completed": True}
+        achievements.check(save, 19)
+        self.assertTrue(achievements.has(save, "act1_brutal"))
+
+    def test_every_award_points_at_a_real_skin(self):
+        for award in achievements.ACHIEVEMENTS:
+            if award.skin:
+                with self.subTest(award=award.id):
+                    self.assertIn(award.skin, cosmetics.BY_ID)
+
+    def test_every_earned_skin_has_an_award_that_gives_it(self):
+        """Otherwise a skin sits in the list that nobody can ever unlock."""
+        handed_out = {a.skin for a in achievements.ACHIEVEMENTS if a.skin}
+        for skin in cosmetics.SKINS:
+            if skin.achievement:
+                with self.subTest(skin=skin.id):
+                    self.assertIn(skin.id, handed_out)
+                    self.assertIn(skin.achievement, achievements.BY_ID)
+
+    def test_a_broken_save_does_not_crash_the_check(self):
+        save = self._save()
+        save.data["modes"]["normal"]["levels"] = None      # nonsense on purpose
+        self.assertEqual(achievements.check(save, 19), [])
 
 
 class TestClimbLayout(unittest.TestCase):

@@ -21,6 +21,7 @@ from ui import Menu, MenuItem
 from utils import Camera, format_time, rank_for_deaths, ease_out_cubic, ease_out_back, clamp, damp, lerp_colour
 from world import World
 import cosmetics
+import achievements
 from economy import clear_payout, total_of, death_payout
 from player import wants_jump
 
@@ -475,12 +476,13 @@ class SkinsScene(Scene):
         self.anims = {}
         self.flash = 0.0
         self.note = None            # [text, colour, seconds left]
+        self.page = "skins"         # the other page is "awards"
 
     def _layout(self):
         cards = []
         for i in range(len(self.skins)):
             col, row = i % self.COLS, i // self.COLS
-            cards.append(pygame.Rect(32 + col * 176, 168 + row * 190, 160, 170))
+            cards.append(pygame.Rect(32 + col * 176, 178 + row * 190, 160, 170))
         return cards
 
     def _say(self, text, colour):
@@ -526,6 +528,15 @@ class SkinsScene(Scene):
             self.index = max(0, self.index - self.COLS)
         if controls.consume("down"):
             self.index = min(len(self.skins) - 1, self.index + self.COLS)
+        for e in events:
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_TAB:
+                self.page = "awards" if self.page == "skins" else "skins"
+                audio.play("ui_move")
+        if self.page == "awards":
+            if controls.consume("back"):
+                audio.play("ui_back")
+                self.game.scenes.switch(TitleScene(self.game))
+            return
         cards = self._layout()
         for e in events:
             if e.type == pygame.MOUSEMOTION:
@@ -547,12 +558,50 @@ class SkinsScene(Scene):
         for i in range(len(self.skins)):
             self.anims[i] = damp(self.anims.get(i, 0.0), 1.0 if i == self.index else 0.0, 14, dt)
 
+    def _draw_tabs(self, surface):
+        for i, (name, key) in enumerate((("SKINS", "skins"), ("AWARDS", "awards"))):
+            x = VIRTUAL_W // 2 + (-110 if i == 0 else 110)
+            live = self.page == key
+            draw_text(surface, name, (x, 56), 40 if live else 32, PAPER if live else DIM, "display",
+                      shadow=INK if live else None)
+        draw_text(surface, "TAB  switch", (VIRTUAL_W // 2, 92), 15, DIM, bold=True)
+
+    def _draw_awards(self, surface):
+        save = self.game.save
+        done, total = achievements.progress(save, len(self.game.levels))
+        draw_text(surface, f"{done} of {total} earned", (VIRTUAL_W // 2, 124), 22, GOLD, bold=True)
+        for i, award in enumerate(achievements.ACHIEVEMENTS):
+            col, row = i % 2, i // 2
+            r = pygame.Rect(40 + col * 610, 156 + row * 88, 590, 76)
+            got = achievements.has(save, award.id)
+            panel(surface, r, fill=(22, 18, 30, 230) if got else (13, 11, 17, 230),
+                  border=(*GOLD, 180) if got else (255, 255, 255, 30), width=2)
+            if award.skin:
+                draw_skin_preview(surface, cosmetics.get(award.skin), (r.left + 46, r.centery), 1.1,
+                                  255 if got else 45)
+            else:
+                draw_skull(surface, (r.left + 46, r.centery), 22 if got else 20,
+                           PAPER if got else DIM)
+            draw_text(surface, award.name, (r.left + 86, r.top + 26), 24, PAPER if got else MUTED,
+                      "display", anchor="midleft")
+            draw_text(surface, award.description, (r.left + 86, r.top + 52), 17, MUTED if got else DIM,
+                      anchor="midleft")
+            if got:
+                draw_text(surface, "EARNED", (r.right - 20, r.centery), 16, TOXIC, bold=True,
+                          anchor="midright")
+            else:
+                draw_lock(surface, (r.right - 34, r.centery), 18, DIM)
+
     def draw(self, surface):
         self.bg.draw(surface, self.time * 12)
         dim(surface, 160)
         save = self.game.save
-        draw_text(surface, "SKINS", (VIRTUAL_W // 2, 56), 54, PAPER, "display", shadow=INK)
-        draw_text(surface, f"{save.spite}  {CURRENCY}", (VIRTUAL_W // 2, 102), 24, GOLD, bold=True)
+        self._draw_tabs(surface)
+        if self.page == "awards":
+            self._draw_awards(surface)
+            draw_text(surface, "TAB  skins     ESC  back", (VIRTUAL_W // 2, VIRTUAL_H - 38), 18, DIM, bold=True)
+            return
+        draw_text(surface, f"{save.spite}  {CURRENCY}", (VIRTUAL_W // 2, 124), 24, GOLD, bold=True)
         worn = cosmetics.equipped(save).id
         for i, (skin, r0) in enumerate(zip(self.skins, self._layout())):
             a = self.anims.get(i, 0.0)
@@ -577,7 +626,7 @@ class SkinsScene(Scene):
         draw_text(surface, self.skins[self.index].how, (VIRTUAL_W // 2, VIRTUAL_H - 132), 24, MUTED)
         if self.note:
             draw_text(surface, self.note[0], (VIRTUAL_W // 2, VIRTUAL_H - 88), 28, self.note[1], bold=True)
-        draw_text(surface, "ARROWS / MOUSE  choose     ENTER  equip or buy     ESC  back",
+        draw_text(surface, "ARROWS / MOUSE  choose     ENTER  equip or buy     TAB  awards     ESC  back",
                   (VIRTUAL_W // 2, VIRTUAL_H - 38), 18, DIM, bold=True)
         if self.flash > 0:
             dim(surface, int(80 * self.flash), GOLD)
@@ -890,6 +939,10 @@ class CreditsScene(Scene):
             ("QUALITY ASSURANCE", 20, MUTED, "body"),
             ("An automated solver that beat every level so you can't say it's impossible", 24, PAPER, "body"),
             ("", 30, PAPER, "body"),
+            ("AWARDS", 20, MUTED, "body"),
+            (f"{achievements.progress(game.save, len(game.levels))[0]} of "
+             f"{len(achievements.ACHIEVEMENTS)} badges of suffering collected", 28, GOLD, "body"),
+            ("", 30, PAPER, "body"),
             ("SPECIAL THANKS", 20, MUTED, "body"), ("You. For not quitting. Yet.", 30, PAPER, "body"),
             ("", 120, PAPER, "body"),
             ("THE END?", 70, BLOOD, "display"),
@@ -957,6 +1010,7 @@ class GameScene(Scene):
         self.deaths = 0
         self.death_bump = 0.0
         self.jump_queued = False
+        self.toasts = []             # achievements that just landed
         self.intro = 0.0
         self.taunt = None            # [text, timer]
         self.last_taunt = None
@@ -1141,6 +1195,7 @@ class GameScene(Scene):
             self.game.session_death_spite += coin
             save.add_spite(coin)
         self.taunt = [self._taunt_for(d["cause"], total, x, y), 0.0]
+        self._check_achievements()
         self.dead_timer = self.world.diff["respawn"]
         self.game.session_deaths += 1
 
@@ -1159,6 +1214,12 @@ class GameScene(Scene):
         self.complete_data = {"time": self.level_time, "deaths": self.deaths, "letter": letter,
                               "comment": comment, "new_time": new_time, "new_deaths": new_deaths,
                               "payout": lines, "earned": earned}
+        self._check_achievements()
+
+    def _check_achievements(self):
+        for won in achievements.check(self.game.save, len(self.game.levels)):
+            self.toasts.append([won, 0.0])
+            self.game.audio.play("reveal", 0.9)
 
     def _act_finished(self):
         """True when this level was the last one of its act."""
@@ -1234,6 +1295,9 @@ class GameScene(Scene):
             self._restart_from_checkpoint()
 
         self.intro += dt
+        for toast in self.toasts:
+            toast[1] += dt
+        self.toasts = [t for t in self.toasts if t[1] < 4.2]
         if self.world.state == "play":
             self.level_time += dt
             self.game.save.add_play_time(dt)
@@ -1369,6 +1433,7 @@ class GameScene(Scene):
             c.blit(shade, (0, 0))
         c.blit(self.game.vignette, (0, 0))
         self._draw_hud(c)
+        self._draw_toasts(c)
         surface.blit(c, (0, 0))
         if self.paused:
             self._draw_pause(surface)
@@ -1466,6 +1531,21 @@ class GameScene(Scene):
         self.pause_menu.draw(surface)
         draw_text(surface, "Tip: R restarts from the last checkpoint instantly.", (VIRTUAL_W // 2, VIRTUAL_H - 40),
                   18, DIM, bold=True)
+
+    def _draw_toasts(self, surface):
+        """Achievement popups, sliding in at the top right and drifting away."""
+        for i, (won, t) in enumerate(self.toasts):
+            slide = ease_out_back(min(1.0, t / 0.45))
+            fade = 1.0 if t < 3.4 else max(0.0, (4.2 - t) / 0.8)
+            box = pygame.Rect(0, 0, 420, 76)
+            box.topright = (VIRTUAL_W - 24 + int(440 * (1 - slide)), 96 + i * 88)
+            panel(surface, box, fill=(20, 16, 28, int(240 * fade)), border=(*GOLD, int(220 * fade)), width=3)
+            draw_text(surface, "ACHIEVEMENT", (box.left + 20, box.top + 22), 15, GOLD, bold=True,
+                      anchor="midleft", alpha=int(255 * fade))
+            draw_text(surface, won.name, (box.left + 20, box.top + 48), 26, PAPER, "display",
+                      anchor="midleft", alpha=int(255 * fade))
+            if won.skin:
+                draw_skin_preview(surface, cosmetics.get(won.skin), (box.right - 44, box.centery), 1.1)
 
     def _draw_complete(self, surface):
         d = self.complete
