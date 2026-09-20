@@ -1,5 +1,5 @@
 # Local save so GitHub users start fresh
-rage_save.json
+rage_save*.json
 rage_save.json.tmp
 
 # Python build junk

@@ -1,4 +1,3 @@
-# Personal save files - never commit these
-rage_save.json
+# Personal save files and their backups - never commit these
+rage_save*.json
 rage_save.json.tmp
-rage_save.backup.json
