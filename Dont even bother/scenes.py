@@ -219,16 +219,15 @@ def _left_scrim(width=760, alpha=170):
     return surf
 
 
-def draw_character_display(surface, skin, centre, scale, t, glow=True):
+def draw_character_display(surface, skin, centre, scale, t, glow=True, bright=False):
     """The equipped skin, idling, big enough to be worth having earned."""
     bob = math.sin(t * 2.0) * 5
     cx, cy = centre[0], centre[1] + bob
     if glow:
-        halo = glow_circle(150, skin.scarf, 55)
-        surface.blit(halo, (cx - 150, cy - 150))
-    shadow = pygame.Surface((int(26 * scale) + 40, 22), pygame.SRCALPHA)
-    pygame.draw.ellipse(shadow, (0, 0, 0, 110), shadow.get_rect())
-    surface.blit(shadow, (cx - shadow.get_width() // 2, centre[1] + int(17 * scale) + 6))
+        pulse = 18 * math.sin(t * 2.4) if bright else 0
+        halo = glow_circle(170, skin.scarf, int((96 if bright else 52) + pulse))
+        surface.blit(halo, (cx - 170, cy - 170))
+    # no ground shadow: without a frame there is nothing for it to fall on
     draw_skin_preview(surface, skin, (cx, cy), scale)
 
 
@@ -345,19 +344,24 @@ class TitleScene(Scene):
         save = self.game.save
         skin = cosmetics.equipped(save)
         selected = self.menu.index == self._skins_index()
+        # No frame around this: the character stands in the same scene the menu
+        # does. PANEL is only the click target.
         box = self.PANEL
-        panel(surface, box, fill=(16, 12, 22, 210),
-              border=(*GOLD, 200) if selected else (255, 255, 255, 46), width=3 if selected else 2)
-        draw_text(surface, "WEARING", (box.centerx, box.top + 28), 16, MUTED, bold=True)
-        draw_character_display(surface, skin, (box.centerx, box.top + 178), 4.6, self.time)
-        draw_text(surface, skin.name, (box.centerx, box.bottom - 78), 26, PAPER, "display")
-        owned = len(cosmetics.unlocked_ids(save))
-        draw_text(surface, f"{owned} of {len(cosmetics.SKINS)} skins", (box.centerx, box.bottom - 48), 17,
-                  MUTED, bold=True)
-        draw_text(surface, "SKINS", (box.centerx, box.bottom + 24), 30, GOLD if selected else MUTED,
+        draw_text(surface, "WEARING", (box.centerx, box.top + 30), 16, MUTED, bold=True)
+        draw_character_display(surface, skin, (box.centerx, box.top + 186), 4.6, self.time,
+                               glow=True, bright=selected)
+        draw_text(surface, skin.name, (box.centerx, box.bottom - 64), 28, PAPER if selected else MUTED,
                   "display")
+        owned = len(cosmetics.unlocked_ids(save))
+        draw_text(surface, f"{owned} of {len(cosmetics.SKINS)} skins", (box.centerx, box.bottom - 32), 17,
+                  MUTED, bold=True)
+        draw_text(surface, "SKINS", (box.centerx, box.bottom + 16), 30, GOLD if selected else MUTED,
+                  "display")
+        if selected:
+            pygame.draw.line(surface, GOLD, (box.centerx - 52, box.bottom + 36),
+                             (box.centerx + 52, box.bottom + 36), 2)
         if save.spite:
-            draw_text(surface, f"{save.spite} {CURRENCY}", (box.centerx, box.bottom + 56), 19,
+            draw_text(surface, f"{save.spite} {CURRENCY}", (box.centerx, box.bottom + 60), 19,
                       GOLD, bold=True)
 
     def draw(self, surface):
