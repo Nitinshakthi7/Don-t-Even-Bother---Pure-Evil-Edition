@@ -24,6 +24,7 @@ import cosmetics                                                 # noqa: E402
 import achievements                                              # noqa: E402
 import ghosts                                                    # noqa: E402
 from settings import PAYOUT, DEATH_PAYOUT_CAP, MAX_NAME, NAME_TAUNTS  # noqa: E402
+from settings import RANK_COLOURS                                 # noqa: E402
 
 KNOWN_CHARS = set(".#~PGXKB^v<>hcxi123456789eSmuoRUTY{}Ik")
 
@@ -480,6 +481,36 @@ class TestPlayerName(unittest.TestCase):
             with self.subTest(line=line):
                 self.assertIn("{name}", line)
                 self.assertIn("Nitin", line.format(name="Nitin"))
+
+
+class TestDoors(unittest.TestCase):
+    """A door is 62px tall in a 40px tile, so it needs headroom above its row."""
+
+    def test_no_door_hangs_off_the_top_of_a_level(self):
+        problems = []
+        for difficulty in ("normal", "brutal"):
+            for level in LEVELS:
+                world = World(level, difficulty)
+                height = len(level.rows) * TILE
+                for door in world.doors:
+                    if door.rect.top < 0:
+                        problems.append(f"level {level.number} ({difficulty}) door top {door.rect.top}")
+                    if door.rect.bottom > height:
+                        problems.append(f"level {level.number} ({difficulty}) door below the floor")
+        self.assertEqual(problems, [], "; ".join(problems))
+
+
+class TestRankBadge(unittest.TestCase):
+    """A cleared level with no death count recorded must not crash the menu."""
+
+    def test_a_missing_death_count_still_ranks(self):
+        letter, comment = rank_for_deaths(None)
+        self.assertIn(letter, RANK_COLOURS)
+        self.assertTrue(comment)
+
+    def test_normal_counts_still_rank_as_before(self):
+        self.assertEqual(rank_for_deaths(0)[0], rank_for_deaths(0)[0])
+        self.assertIn(rank_for_deaths(500)[0], RANK_COLOURS)
 
 
 class TestClimbLayout(unittest.TestCase):

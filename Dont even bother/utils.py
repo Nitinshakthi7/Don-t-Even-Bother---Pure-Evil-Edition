@@ -71,7 +71,13 @@ def format_time(seconds):
 
 
 def rank_for_deaths(deaths):
-    """Return (letter, comment) for the number of deaths in a clear."""
+    """Return (letter, comment) for the number of deaths in a clear.
+
+    A cleared level with no recorded death count gets the bottom rank rather
+    than crashing: a save can say "completed" without a number beside it.
+    """
+    if deaths is None:
+        return RANKS[-1][0], RANKS[-1][2]
     for letter, limit, comment in RANKS:
         if deaths <= limit:
             return letter, comment

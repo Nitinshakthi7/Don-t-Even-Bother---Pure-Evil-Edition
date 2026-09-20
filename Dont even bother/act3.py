@@ -55,22 +55,27 @@ RIGHT_FLIGHT = [(11, 2, 4), (9, 7, 3), (7, 11, 3), (5, 15, 3), (3, 19, 3), (1, 2
 LEFT_FLIGHT = [(11, 28, 4), (9, 23, 3), (7, 19, 3), (5, 15, 3), (3, 11, 3), (1, 6, 4)]
 
 
-def flight(going, tiles=None, extras=(), **kwargs):
+def flight(going, tiles=None, extras=(), drop=0, **kwargs):
     """A chunk-high staircase of six ledges, bottom to top.
 
     `tiles` gives the block for each ledge (one character to fill the whole
     ledge, or the exact text to write), so a chunk can make its ledges ice,
     cracked, blinking and so on. `extras` are (row, col, text) additions.
+
+    `drop` pushes the whole flight down and makes the chunk that much taller,
+    which buys headroom above the top ledge. A door is 62px tall in a 40px
+    tile, so one standing on row 0 would hang off the top of the world.
     """
     ledges = RIGHT_FLIGHT if going == "right" else LEFT_FLIGHT
     tiles = list(tiles or "######")
     spec = {}
     for (row, col, width), tile in zip(ledges, tiles):
-        spec.setdefault(row, []).append((col, tile * width if len(tile) == 1 else tile))
+        spec.setdefault(row + drop, []).append((col, tile * width if len(tile) == 1 else tile))
     for row, col, text in extras:
         spec.setdefault(row, []).append((col, text))
     top_row, top_col, top_width = ledges[-1]
-    kwargs.setdefault("exit", (top_col + top_width // 2, 0))
+    kwargs.setdefault("exit", (top_col + top_width // 2, drop))
+    kwargs.setdefault("height", 12 + drop)
     return tower(spec, **kwargs)
 
 
@@ -185,13 +190,13 @@ def saw_gauntlet():
 
 def summit():
     """The top. One of those doors is a lie."""
-    return flight("right", extras=[(2, 20, "X"), (0, 26, "h"), (0, 25, "G")],
-                  edits={"brutal": [(22, 3, "x")]})
+    return flight("right", drop=1, extras=[(3, 20, "X"), (1, 26, "h"), (1, 25, "G")],
+                  edits={"brutal": [(22, 4, "x")]})
 
 
 def summit_with_echo():
     chunk = summit()
-    chunk.triggers = [Trigger((0, 9, W, 3), [("echo", 1.3), ("say", "Your past self wants a word.")])]
+    chunk.triggers = [Trigger((0, 10, W, 3), [("echo", 1.3), ("say", "Your past self wants a word.")])]
     return chunk
 
 

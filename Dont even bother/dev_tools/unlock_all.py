@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import achievements                 # noqa: E402
 import cosmetics                    # noqa: E402
+import ghosts                       # noqa: E402
 from campaign import LEVELS         # noqa: E402
 from utils import SaveManager       # noqa: E402
 
@@ -44,6 +45,12 @@ def unlock_everything(save):
         for level in LEVELS:
             stats = save.level_stats(level.number, mode)
             stats["completed"] = True
+            # a cleared level always has a time and a death count beside it;
+            # marking one completed without them is a state the game never makes
+            if stats["best_time"] is None:
+                stats["best_time"] = ghosts.par(level.number, mode) or 60.0
+            if stats["best_deaths"] is None:
+                stats["best_deaths"] = 0
         save.data["modes"][mode]["completed"] = True
     save.data["spite"] = max(save.spite, 9999)
     save.data["cosmetics"]["unlocked"] = [skin.id for skin in cosmetics.SKINS]

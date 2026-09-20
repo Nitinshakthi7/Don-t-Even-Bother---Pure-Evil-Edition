@@ -1094,10 +1094,11 @@ class LevelSelectScene(Scene):
                       theme["accent"], bold=True, anchor="topleft")
             draw_skull(surface, (r.x + 28, r.bottom - 30), 18)
             draw_text(surface, str(stats["deaths"]), (r.x + 44, r.bottom - 30), 20, PAPER, anchor="midleft")
-            if stats["completed"]:
+            if stats["completed"] and stats["best_time"] is not None:
                 draw_clock(surface, (r.x + 110, r.bottom - 30), 18, MUTED)
                 draw_text(surface, format_time(stats["best_time"]), (r.x + 124, r.bottom - 30), 18, MUTED,
                           anchor="midleft")
+            if stats["completed"] and stats["best_deaths"] is not None:
                 letter, _ = rank_for_deaths(stats["best_deaths"])
                 badge = pygame.Rect(0, 0, 44, 44)
                 badge.topright = (r.right - 14, r.y + 24)
