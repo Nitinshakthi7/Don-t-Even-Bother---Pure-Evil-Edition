@@ -1,325 +1,204 @@
 # I am adding comments for me to easily understand the codes
+# ui.py - reusable menu widgets. One Menu class handles buttons, sliders
+# and on/off toggles, and works with keyboard, mouse and gamepad.
+
+import math
 
 import pygame
-import math
-import random
-from settings import *
 
-# Buttons and UI screens (menu, level select, HUD, death, victory)
-class Button:
-    def __init__(self, x, y, w, h, text, color=BLUE, hover_color=CYAN, asset_manager=None):
-        # Base size and position of the button
-        self.base_rect = pygame.Rect(x - w // 2, y - h // 2, w, h)
-        self.rect = self.base_rect.copy()  # This changes as we animate
-        self.text = text  # Text shown on the button
-        self.color = color  # Normal color
-        self.hover_color = hover_color  # Color when hovered
-        self.is_hovered = False  # True when mouse is over it
-        self.asset_manager = asset_manager  # For button images
-        # Animation values for hover scaling
-        self.hover_scale = 1.0
-        self.target_scale = 1.0
-        self.pulse_timer = random.uniform(0, math.pi * 2)
+from settings import PAPER, MUTED, INK, BLOOD, WHITE, DIM, GOLD
+from graphics import draw_text, render_text
+from utils import damp
 
-    def update(self, mouse_pos):
-        """Check if mouse is over the button and animate size a bit."""
-        self.is_hovered = self.base_rect.collidepoint(mouse_pos)
-        # Smoothly move scale towards the target
-        self.target_scale = BUTTON_HOVER_SCALE if self.is_hovered else 1.0
-        self.hover_scale += (self.target_scale - self.hover_scale) * 0.15
-        # Resize the rect based on the scale
-        w = int(self.base_rect.width * self.hover_scale)
-        h = int(self.base_rect.height * self.hover_scale)
-        self.rect = pygame.Rect(
-            self.base_rect.centerx - w // 2,
-            self.base_rect.centery - h // 2,
-            w, h
-        )
-        self.pulse_timer += 0.05
 
-    def draw(self, screen, font):
-        """Draw the button with a shadow and text."""
-        color = self.hover_color if self.is_hovered else self.color
-        # Drop shadow for depth
-        shadow_rect = self.rect.copy()
-        shadow_rect.x += BUTTON_SHADOW_OFFSET
-        shadow_rect.y += BUTTON_SHADOW_OFFSET
-        pygame.draw.rect(screen, (20, 20, 20), shadow_rect, border_radius=8)
-        # Use images if available, otherwise draw a simple rectangle
-        if self.asset_manager and ('button_hover' if self.is_hovered else 'button_normal') in self.asset_manager.ui_images:
-            btn_img = self.asset_manager.ui_images['button_hover' if self.is_hovered else 'button_normal']
-            scaled_img = pygame.transform.scale(btn_img, (self.rect.width, self.rect.height))
-            screen.blit(scaled_img, self.rect)
-        else:
-            pygame.draw.rect(screen, color, self.rect, border_radius=8)
-            if self.is_hovered:
-                pulse = abs(math.sin(self.pulse_timer))
-                glow_surf = pygame.Surface((self.rect.w + 10, self.rect.h + 10), pygame.SRCALPHA)
-                glow_alpha = int(80 * pulse)
-                pygame.draw.rect(glow_surf, (*CYAN, glow_alpha), (0, 0, self.rect.w + 10, self.rect.h + 10), border_radius=10)
-                screen.blit(glow_surf, (self.rect.x - 5, self.rect.y - 5))
-            pygame.draw.rect(screen, WHITE, self.rect, 3, border_radius=8)
-        # Text centered on the button
-        text_surf = font.render(self.text, True, WHITE)
-        text_rect = text_surf.get_rect(center=self.rect.center)
-        screen.blit(text_surf, text_rect)
+class MenuItem:
+    """kind is 'button', 'slider' or 'toggle'.
+    Sliders/toggles read and write their value through get/set callbacks."""
 
-    def is_clicked(self, event):
-        """Return True when the left mouse button clicks this button."""
-        return event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.is_hovered
+    def __init__(self, label, action=None, kind="button", get=None, set=None, step=0.1, enabled=True,
+                 hint=None):
+        self.label = label
+        self.action = action
+        self.kind = kind
+        self.get = get
+        self.set = set
+        self.step = step
+        self.enabled = enabled
+        self.hint = hint
+        self.anim = 0.0          # 0..1 highlight animation
+        self.rect = pygame.Rect(0, 0, 0, 0)
+        self.bar_rect = None
 
-class UIManager:
-    def __init__(self, save_manager, level_count, asset_manager=None):
-        # References to other systems
-        self.save_manager = save_manager
-        self.level_count = level_count
-        self.asset_manager = asset_manager
-        # Fonts for drawing text
-        self.font_huge = pygame.font.Font(None, 100)
-        self.font_large = pygame.font.Font(None, 72)
-        self.font_med = pygame.font.Font(None, 48)
-        self.font_small = pygame.font.Font(None, 36)
-        # Animation helpers
-        self.menu_timer = 0
-        self.death_timer = 0
-        self.victory_timer = 0
-        # Floating particles in the main menu
-        self.menu_particles = []
-        self._init_menu_particles()
-        # Particle lists used in overlays
-        self.death_particles = []
-        self.victory_particles = []
-        # Create all the buttons now
-        self._create_buttons()
-    
-    def _init_menu_particles(self):
-        """Make random dots that float in the menu background."""
-        for _ in range(MENU_PARTICLE_COUNT):
-            self.menu_particles.append({
-                'x': random.randint(0, SCREEN_WIDTH),
-                'y': random.randint(0, SCREEN_HEIGHT),
-                'vx': random.uniform(-20, 20),
-                'vy': random.uniform(-30, 30),
-                'size': random.randint(2, 4),
-                'alpha': random.randint(50, 150)
-            })
 
-    def _create_buttons(self):
-        """Create buttons for the main menu and level select grid."""
-        center_x = SCREEN_WIDTH // 2
-        # Keep the first button clear of the subtitle (drawn at y=260) on short screens
-        menu_top = max(SCREEN_HEIGHT // 2 - 100, 340)
-        self.menu_buttons = [
-            Button(center_x, menu_top, 250, 70, "PLAY", asset_manager=self.asset_manager),
-            Button(center_x, menu_top + 100, 250, 70, "SETTINGS", asset_manager=self.asset_manager),
-            Button(center_x, menu_top + 200, 250, 70, "EXIT", asset_manager=self.asset_manager),
-        ]
+class Menu:
+    def __init__(self, items, center, spacing=64, width=460, size=36, align="center", accent=BLOOD):
+        self.items = items
+        self.center = center
+        self.spacing = spacing
+        self.width = width
+        self.size = size
+        self.align = align
+        self.accent = accent
+        self.index = 0
+        self.time = 0.0
+        self.dragging = False
+        self._skip_disabled(1)
 
-        self.level_buttons = []
-        rows, cols = 2, 5  # 10 buttons grid (2 rows x 5 columns)
-        btn_w, btn_h = 160, 110
-        spacing_x, spacing_y = 190, 150
-        grid_w = (cols - 1) * spacing_x
-        start_x = center_x - grid_w // 2
-        start_y = SCREEN_HEIGHT // 2 - 100
+    # ------------------------------------------------------------ navigation
+    def _skip_disabled(self, direction):
+        for _ in range(len(self.items)):
+            if self.items[self.index].enabled:
+                return
+            self.index = (self.index + direction) % len(self.items)
 
-        for i in range(self.level_count):
-            row = i // cols
-            col = i % cols
-            x = start_x + col * spacing_x
-            y = start_y + row * spacing_y
-            self.level_buttons.append(Button(x, y, btn_w, btn_h, f"Level {i + 1}", asset_manager=self.asset_manager))
+    def move(self, direction, audio=None):
+        self.index = (self.index + direction) % len(self.items)
+        self._skip_disabled(direction)
+        if audio:
+            audio.play("ui_move")
 
-    def draw_menu(self, screen):
-        """Draw the main menu with a pulsing title and floating dots."""
-        screen.fill(DARK_PURPLE)
-        # Move and draw the dots
-        for particle in self.menu_particles:
-            particle['x'] += particle['vx'] * 0.016
-            particle['y'] += particle['vy'] * 0.016
-            # Wrap to the other side when leaving the screen
-            if particle['x'] < 0: particle['x'] = SCREEN_WIDTH
-            if particle['x'] > SCREEN_WIDTH: particle['x'] = 0
-            if particle['y'] < 0: particle['y'] = SCREEN_HEIGHT
-            if particle['y'] > SCREEN_HEIGHT: particle['y'] = 0
-            color = (*WHITE, particle['alpha'])
-            surf = pygame.Surface((particle['size']*2, particle['size']*2), pygame.SRCALPHA)
-            pygame.draw.circle(surf, color, (particle['size'], particle['size']), particle['size'])
-            screen.blit(surf, (int(particle['x']), int(particle['y'])))
-        
-        # Title scales up and down slowly
-        self.menu_timer += 0.05
-        pulse = abs(math.sin(self.menu_timer * TITLE_PULSE_SPEED))
-        title_scale = 1.0 + 0.05 * pulse
-        title_text = "DON'T EVEN BOTHER"
-        title_surf = self.font_huge.render(title_text, True, RED)
-        title_w, title_h = title_surf.get_size()
-        scaled_w, scaled_h = int(title_w * title_scale), int(title_h * title_scale)
-        title_scaled = pygame.transform.scale(title_surf, (scaled_w, scaled_h))
-        # Shadow behind the title
-        title_shadow = self.font_huge.render(title_text, True, DARK_RED)
-        title_shadow_scaled = pygame.transform.scale(title_shadow, (scaled_w, scaled_h))
-        shadow_rect = title_shadow_scaled.get_rect(centerx=screen.get_width() // 2 + 5, y=155)
-        screen.blit(title_shadow_scaled, shadow_rect)
-        # Main title
-        title_rect = title_scaled.get_rect(centerx=screen.get_width() // 2, y=150)
-        screen.blit(title_scaled, title_rect)
-        # Subtitle text
-        subtitle = self.font_small.render("Pure Evil Edition - NO WARNINGS!", True, ORANGE)
-        screen.blit(subtitle, subtitle.get_rect(centerx=screen.get_width() // 2, y=260))
-        
-        # Death counter
-        deaths_y = screen.get_height() - 120
-        if self.asset_manager and 'skull_icon' in self.asset_manager.ui_images:
-            skull = self.asset_manager.ui_images['skull_icon']
-            skull_rect = skull.get_rect(centerx=screen.get_width() // 2 - 120, centery=deaths_y + 15)
-            screen.blit(skull, skull_rect)
-        deaths = self.font_small.render(f"Total Deaths: {self.save_manager.data['total_deaths']}", True, RED)
-        screen.blit(deaths, deaths.get_rect(centerx=screen.get_width() // 2, centery=deaths_y))
-        # Small hint text
-        hint = self.font_small.render("ESC = Menu | F11 = Fullscreen", True, GRAY)
-        screen.blit(hint, hint.get_rect(centerx=screen.get_width() // 2, bottom=screen.get_height() - 60))
-        # Draw the menu buttons
-        for btn in self.menu_buttons:
-            btn.draw(screen, self.font_med)
+    @property
+    def current(self):
+        return self.items[self.index]
 
-    def draw_level_select(self, screen):
-        """Draw grid of level buttons and lock the ones not unlocked."""
-        screen.fill(DARK_PURPLE)
-        title = self.font_large.render("SELECT LEVEL", True, YELLOW)
-        hint = self.font_small.render("ESC to go back", True, WHITE)
-        screen.blit(title, title.get_rect(centerx=screen.get_width() // 2, y=100))
-        screen.blit(hint, hint.get_rect(centerx=screen.get_width() // 2, bottom=screen.get_height() - 60))
-        unlocked = min(self.save_manager.data["unlocked_level"], self.level_count)
-        for i, btn in enumerate(self.level_buttons):
-            if i + 1 <= unlocked:
-                btn.draw(screen, self.font_med)
+    def _adjust(self, item, direction, audio):
+        if item.kind == "slider":
+            value = round(min(1.0, max(0.0, item.get() + item.step * direction)), 2)
+            item.set(value)
+            if audio:
+                audio.play("ui_move")
+        elif item.kind == "toggle":
+            item.set(not item.get())
+            if audio:
+                audio.play("ui_select")
+
+    def update(self, dt, controls, events, audio=None):
+        """Returns the action of an activated button (or None)."""
+        self.time += dt
+        for i, item in enumerate(self.items):
+            item.anim = damp(item.anim, 1.0 if i == self.index else 0.0, 14, dt)
+
+        if controls.consume("up"):
+            self.move(-1, audio)
+        if controls.consume("down"):
+            self.move(1, audio)
+        item = self.current
+        if item.kind in ("slider", "toggle"):
+            if controls.consume("left"):
+                self._adjust(item, -1, audio)
+            if controls.consume("right"):
+                self._adjust(item, 1, audio)
+        if controls.consume("confirm") and item.enabled:
+            if item.kind == "toggle":
+                self._adjust(item, 1, audio)
+            elif item.kind == "button":
+                if audio:
+                    audio.play("ui_select")
+                return item.action
+
+        # mouse
+        for event in events:
+            if event.type == pygame.MOUSEMOTION:
+                for i, it in enumerate(self.items):
+                    if it.enabled and it.rect.collidepoint(event.pos) and i != self.index:
+                        self.index = i
+                        if audio:
+                            audio.play("ui_move", 0.6)
+                if self.dragging and self.current.kind == "slider":
+                    self._set_slider_from_mouse(self.current, event.pos[0])
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for i, it in enumerate(self.items):
+                    if it.enabled and it.rect.collidepoint(event.pos):
+                        self.index = i
+                        if it.kind == "slider":
+                            self.dragging = True
+                            self._set_slider_from_mouse(it, event.pos[0])
+                        elif it.kind == "toggle":
+                            self._adjust(it, 1, audio)
+                        else:
+                            if audio:
+                                audio.play("ui_select")
+                            return it.action
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                self.dragging = False
+            elif event.type == pygame.MOUSEWHEEL and self.current.kind == "slider":
+                self._adjust(self.current, 1 if event.y > 0 else -1, audio)
+        return None
+
+    def _set_slider_from_mouse(self, item, mx):
+        if item.bar_rect:
+            value = (mx - item.bar_rect.left) / item.bar_rect.width
+            item.set(round(min(1.0, max(0.0, value)), 2))
+
+    # ------------------------------------------------------------ drawing
+    def draw(self, surface, alpha=255):
+        cx, cy = self.center
+        top = cy - (len(self.items) - 1) * self.spacing / 2
+        for i, item in enumerate(self.items):
+            y = int(top + i * self.spacing)
+            a = item.anim
+            row = pygame.Rect(0, 0, self.width, self.spacing - 10)
+            row.center = (cx, y)
+            item.rect = row
+            # highlight bar: a slanted blade shape that slides in
+            if a > 0.02:
+                w = int(row.width * (0.55 + 0.45 * a))
+                bar = pygame.Surface((w, row.height), pygame.SRCALPHA)
+                slant = 16
+                pts = [(slant, 0), (w, 0), (w - slant, row.height), (0, row.height)]
+                pygame.draw.polygon(bar, (*self.accent, int(220 * a * alpha / 255)), pts)
+                bar_x = row.centerx - w // 2
+                surface.blit(bar, (bar_x, row.y))
+                # little arrow marker, gently bobbing
+                bob = math.sin(self.time * 6) * 3
+                ax = bar_x - 22 + bob
+                pygame.draw.polygon(surface, PAPER, [(ax, y - 9), (ax + 12, y), (ax, y + 9)])
+
+            colour = PAPER if item.enabled else DIM
+            if not item.enabled:
+                colour = DIM
+            elif a < 0.5:
+                colour = MUTED if self.align == "split" else PAPER
+            size = self.size
+            if item.kind == "button" and self.align == "center":
+                draw_text(surface, item.label, (cx, y), size, WHITE if a > 0.5 else colour, "display",
+                          alpha=alpha, scale=1.0 + 0.06 * a)
+                if item.hint:       # e.g. a locked entry saying what it's waiting for
+                    draw_text(surface, item.hint, (cx, y + size // 2 + 4), max(12, size - 20), GOLD,
+                              "body", bold=True, alpha=alpha)
             else:
-                pygame.draw.rect(screen, GRAY, btn.rect)
-                pygame.draw.rect(screen, DARK_PURPLE, btn.rect, 3)
-                lock_surf = self.font_med.render("LOCKED", True, DARK_PURPLE)
-                screen.blit(lock_surf, lock_surf.get_rect(center=btn.rect.center))
+                draw_text(surface, item.label, (row.left + 26, y), size, WHITE if a > 0.5 else colour,
+                          "body", anchor="midleft", bold=True, alpha=alpha)
+                if item.kind == "slider":
+                    self._draw_slider(surface, item, row, y, alpha)
+                elif item.kind == "toggle":
+                    self._draw_toggle(surface, item, row, y, alpha)
+                elif item.hint:
+                    draw_text(surface, item.hint, (row.right - 26, y), size - 10, MUTED, "body",
+                              anchor="midright", alpha=alpha)
 
-    def draw_hud(self, screen, level):
-        """Draw small info: deaths and level number while playing."""
-        if self.asset_manager and 'skull_icon' in self.asset_manager.ui_images:
-            skull = self.asset_manager.ui_images['skull_icon']
-            skull_scaled = pygame.transform.scale(skull, (28, 28))
-            screen.blit(skull_scaled, (15, 15))
-            deaths_txt = self.font_small.render(f"{level.death_count}", True, RED)
-            screen.blit(deaths_txt, (50, 20))
-        else:
-            deaths_txt = self.font_small.render(f"Deaths: {level.death_count}", True, RED)
-            screen.blit(deaths_txt, (20, 20))
-        level_txt = self.font_small.render(f"Level {level.num}", True, YELLOW)
-        level_rect = level_txt.get_rect(right=GAME_WIDTH - 20, top=20)
-        border_rect = level_rect.inflate(10, 10)
-        pygame.draw.rect(screen, DARK_PURPLE, border_rect, border_radius=5)
-        pygame.draw.rect(screen, YELLOW, border_rect, 2, border_radius=5)
-        screen.blit(level_txt, level_rect)
+    def _draw_slider(self, surface, item, row, y, alpha):
+        value = item.get()
+        bar = pygame.Rect(0, 0, 220, 10)
+        bar.midright = (row.right - 90, y)
+        item.bar_rect = bar
+        pygame.draw.rect(surface, INK, bar.inflate(4, 4), border_radius=6)
+        pygame.draw.rect(surface, DIM, bar, border_radius=5)
+        fill = bar.copy()
+        fill.width = int(bar.width * value)
+        pygame.draw.rect(surface, PAPER, fill, border_radius=5)
+        pygame.draw.circle(surface, WHITE, (bar.left + fill.width, y), 10)
+        pygame.draw.circle(surface, INK, (bar.left + fill.width, y), 10, 2)
+        draw_text(surface, f"{int(round(value * 100))}%", (row.right - 24, y), self.size - 8, PAPER, "body",
+                  anchor="midright", alpha=alpha)
 
-    def draw_death_screen(self, screen, message):
-        """Dark overlay, falling embers, big YOU DIED text, and a taunt."""
-        vignette = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-        center_x, center_y = screen.get_width() // 2, screen.get_height() // 2
-        for r in range(max(screen.get_width(), screen.get_height()) // 2, 0, -20):
-            alpha = int(150 * (1 - r / (max(screen.get_width(), screen.get_height()) // 2)))
-            pygame.draw.circle(vignette, (*DARK_RED, alpha), (center_x, center_y), r)
-        screen.blit(vignette, (0, 0))
-        overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-        overlay.fill((80, 0, 0, 200))
-        screen.blit(overlay, (0, 0))
-        if len(self.death_particles) < 30:
-            for _ in range(30):
-                self.death_particles.append({
-                    'x': random.randint(0, screen.get_width()),
-                    'y': -20,
-                    'vy': random.uniform(50, 150),
-                    'size': random.randint(3, 8),
-                    'color': random.choice([RED, DARK_RED, ORANGE]),
-                    'life': random.uniform(2, 4)
-                })
-        for particle in self.death_particles[:]:
-            particle['y'] += particle['vy'] * 0.016
-            particle['life'] -= 0.016
-            if particle['y'] > screen.get_height() or particle['life'] <= 0:
-                self.death_particles.remove(particle)
-            else:
-                alpha = int(255 * (particle['life'] / 4))
-                surf = pygame.Surface((particle['size']*2, particle['size']*2), pygame.SRCALPHA)
-                pygame.draw.circle(surf, (*particle['color'], alpha), (particle['size'], particle['size']), particle['size'])
-                screen.blit(surf, (int(particle['x']), int(particle['y'])))
-        self.death_timer += 0.1
-        shake_x = int(random.uniform(-3, 3) * abs(math.sin(self.death_timer * 5)))
-        shake_y = int(random.uniform(-3, 3) * abs(math.sin(self.death_timer * 5)))
-        pulse = 1.0 + 0.1 * abs(math.sin(self.death_timer * 2))
-        msg_text = "YOU DIED"
-        msg = self.font_huge.render(msg_text, True, RED)
-        msg_w, msg_h = msg.get_size()
-        msg_scaled = pygame.transform.scale(msg, (int(msg_w * pulse), int(msg_h * pulse)))
-        msg_rect = msg_scaled.get_rect(centerx=screen.get_width() // 2 + shake_x, centery=screen.get_height() // 3 + shake_y)
-        screen.blit(msg_scaled, msg_rect)
-        taunt = self.font_large.render(message, True, ORANGE)
-        screen.blit(taunt, taunt.get_rect(centerx=screen.get_width() // 2, centery=screen.get_height() // 2))
-        hint = self.font_med.render("Press R to restart | ESC for menu", True, WHITE)
-        screen.blit(hint, hint.get_rect(centerx=screen.get_width() // 2, centery=screen.get_height() // 2 + 120))
-
-    def draw_victory_screen(self, screen, death_count):
-        """Green overlay, confetti, big win text, stars, and continue hint."""
-        overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-        overlay.fill((0, 100, 0, 150))
-        screen.blit(overlay, (0, 0))
-        if len(self.victory_particles) < 100:
-            for _ in range(100):
-                self.victory_particles.append({
-                    'x': random.randint(0, screen.get_width()),
-                    'y': random.randint(-100, -20),
-                    'vx': random.uniform(-50, 50),
-                    'vy': random.uniform(100, 200),
-                    'size': random.randint(4, 10),
-                    'color': random.choice([GREEN, YELLOW, CYAN, WHITE]),
-                    'rotation': random.uniform(0, 360),
-                    'rot_speed': random.uniform(-5, 5)
-                })
-        for particle in self.victory_particles[:]:
-            particle['x'] += particle['vx'] * 0.016
-            particle['y'] += particle['vy'] * 0.016
-            particle['rotation'] += particle['rot_speed']
-            if particle['y'] > screen.get_height() + 20:
-                self.victory_particles.remove(particle)
-            else:
-                surf = pygame.Surface((particle['size']*2, particle['size']*2), pygame.SRCALPHA)
-                pygame.draw.rect(surf, particle['color'], (0, 0, particle['size'], particle['size']))
-                rotated = pygame.transform.rotate(surf, particle['rotation'])
-                rect = rotated.get_rect(center=(int(particle['x']), int(particle['y'])))
-                screen.blit(rotated, rect)
-        self.victory_timer += 0.08
-        pulse = 1.0 + 0.08 * abs(math.sin(self.victory_timer * 2))
-        win_text = "LEVEL COMPLETE!"
-        win = self.font_huge.render(win_text, True, GREEN)
-        win_w, win_h = win.get_size()
-        win_scaled = pygame.transform.scale(win, (int(win_w * pulse), int(win_h * pulse)))
-        win_rect = win_scaled.get_rect(centerx=screen.get_width() // 2, centery=screen.get_height() // 3)
-        glow_alpha = int(100 * abs(math.sin(self.victory_timer * 3)))
-        glow_surf = pygame.Surface((win_rect.w + 20, win_rect.h + 20), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*GREEN, glow_alpha), (0, 0, win_rect.w + 20, win_rect.h + 20))
-        screen.blit(glow_surf, (win_rect.x - 10, win_rect.y - 10))
-        screen.blit(win_scaled, win_rect)
-        # Stars based on how many times you died
-        stars = 3 if death_count == 0 else (2 if death_count < 5 else 1)
-        star_y = screen.get_height() // 2 - 40
-        star_spacing = 50
-        star_start_x = screen.get_width() // 2 - (stars - 1) * star_spacing // 2
-        for i in range(3):
-            x = star_start_x + i * star_spacing
-            color = YELLOW if i < stars else GRAY
-            points = []
-            for j in range(5):
-                angle = math.radians(j * 72 - 90)
-                radius = 15 if j % 2 == 0 else 7
-                points.append((x + radius * math.cos(angle), star_y + radius * math.sin(angle)))
-            pygame.draw.polygon(screen, color, points)
-        deaths = self.font_large.render(f"Deaths: {death_count}", True, YELLOW)
-        screen.blit(deaths, deaths.get_rect(centerx=screen.get_width() // 2, centery=screen.get_height() // 2 + 20))
-        cont = self.font_med.render("Press SPACE to continue | ESC for menu", True, WHITE)
-        screen.blit(cont, cont.get_rect(centerx=screen.get_width() // 2, centery=screen.get_height() // 2 + 120))
+    def _draw_toggle(self, surface, item, row, y, alpha):
+        on = item.get()
+        pill = pygame.Rect(0, 0, 76, 32)
+        pill.midright = (row.right - 24, y)
+        pygame.draw.rect(surface, (60, 180, 110) if on else DIM, pill, border_radius=16)
+        knob_x = pill.right - 16 if on else pill.left + 16
+        pygame.draw.circle(surface, WHITE, (knob_x, y), 12)
+        label = render_text("ON" if on else "OFF", 16, WHITE, "body", True)
+        lx = pill.left + 12 if on else pill.right - 12 - label.get_width()
+        surface.blit(label, (lx, y - label.get_height() // 2))

@@ -1,2 +1,7 @@
-# Ignore local save so GitHub users start fresh
+# Local save so GitHub users start fresh
 rage_save.json
+rage_save.json.tmp
+
+# Python build junk
+__pycache__/
+*.pyc

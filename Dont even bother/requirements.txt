@@ -1,0 +1,2 @@
+pygame>=2.1
+numpy>=1.21   # optional: powers the procedural sound + music (game runs silent without it)
