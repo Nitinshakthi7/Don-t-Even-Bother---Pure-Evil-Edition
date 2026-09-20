@@ -29,8 +29,8 @@ PAD = 10
 BLOCK_KIDS = ["CrumbleBlock", "InvisibleBlock", "SwitchBlock", "ConveyorBlock", "IceBlock"]
 HAZARD_KIDS = ["Spike", "Saw", "Arrow", "Orb", "Cannon", "Laser"]
 ENEMY_KIDS = ["Crawler", "Mimic", "Swooper", "Sentry", "Echo"]
-SCENE_KIDS = ["TitleScene", "DifficultyScene", "LevelSelectScene",
-              "SettingsScene", "CreditsScene", "ActCardScene"]
+SCENE_KIDS = ["TitleScene", "DifficultyScene", "LevelSelectScene", "SettingsScene",
+              "CreditsScene", "ActCardScene", "SkinsScene", "RaceSelectScene"]
 LOOSE_ENTITIES = ["Door", "Spring", "Checkpoint", "Group", "KeyItem"]
 
 boxes = {}
@@ -77,7 +77,9 @@ def draw_box(ax, b):
                 fontsize=9.5, style="italic", color=NOTE, zorder=4)
         y = b.top - 34
     style = "italic" if b.stereotype == "abstract" else "normal"
-    size = min(12.5, (b.w - 18) / (len(b.name) * 0.62))
+    # a point is 100/72 drawing units here, and bold text runs about 0.62 em a
+    # character, so this is what actually fits inside the box
+    size = min(12.5, (b.w - 22) / (len(b.name) * 0.62 * 100 / 72))
     ax.text(b.cx, y, b.name, ha="center", va="center", fontsize=size, fontweight="bold",
             color=INK, style=style, zorder=4)
     if b.compact:
@@ -210,10 +212,25 @@ def build():
     box("Scene", 430, 1560, 280, ["#game: Game", "#time: float"],
         ["+enter()*", "+update(dt, events)*", "+draw(surface)*"], stereotype="abstract")
     for i, name in enumerate(SCENE_KIDS):
-        box(name, 40 + i * 216, 1400, 196, compact=True)
+        # two staggered rows: wide enough for the long names, and the second
+        # row's connectors thread up through the gaps in the first
+        col, row = i % 4, i // 4
+        box(name, 40 + col * 232 + row * 116, 1400 - row * 64, 212, compact=True)
     box("GameScene", 1180, 1500, 360,
         ["-world: World", "-camera: Camera", "-particles: ParticleSystem", "-deaths: int"],
         ["+update(dt, events)", "+draw(surface)", "-_process_world_events()", "-_on_death(cause)"])
+    box("RaceScene", 1600, 1640, 250, compact=True)
+    box("Ghost", 1640, 1380, 300,
+        ["-world: World", "-actions: list", "+par: float", "+finished: bool"],
+        ["+step(dt)", "+reset()"])
+    box("economy", 2300, 1700, 300, [],
+        ["+clear_payout(...)", "+death_payout(paid)"], stereotype="module")
+    box("Skin", 2300, 1130, 240,
+        ["+id, +name: str", "+body, +scarf: tuple", "+cost: int", "+achievement: str"],
+        [], stereotype="dataclass")
+    box("Achievement", 2300, 950, 240,
+        ["+id, +name: str", "+check: callable", "+skin: str"],
+        [], stereotype="dataclass")
     box("Renderer", 2000, 1560, 250, ["-tile_pages: dict"],
         ["+draw_level(world, cam)", "+draw_stains()"])
     box("ParticleSystem", 2000, 1380, 250, ["-parts: list"],
@@ -297,7 +314,13 @@ def main():
     owns(ax, "GameScene", "Renderer", "right", "left", mid=1780)
     owns(ax, "GameScene", "ParticleSystem", "right", "left", mid=1830)
     owns(ax, "World", "Player", "right", "left")
-    uses(ax, "World", "LevelDef", "top", "top", mid=1330, label="built from")
+    inherit(ax, "RaceScene", "GameScene", side=("left", "right"), mid=1570)
+    owns(ax, "RaceScene", "Ghost", "bottom", "top")
+    owns(ax, "Ghost", "World", "left", "right", mid=1610)
+    uses(ax, "GameScene", "economy", "right", "left", mid=1920)
+    uses(ax, "Player", "Skin", "right", "left", label="wears")
+    uses(ax, "Achievement", "Skin", "top", "bottom", label="unlocks")
+    uses(ax, "World", "LevelDef", "top", "top", mid=1310, label="built from")
     owns(ax, "LevelDef", "Trigger", "right", "left")
     uses(ax, "builder", "Chunk", "top", "bottom")
     uses(ax, "campaign", "LevelDef", "top", "bottom")
