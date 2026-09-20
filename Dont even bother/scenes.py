@@ -174,13 +174,80 @@ class SplashScene(Scene):
 
 
 # ================================================================== title
+# ================================================================== title backdrop
+def _ridge_surface(colour, rim, height=190, seed=3):
+    """A near-black foreground ridge with spikes along its crest.
+
+    It sits at the bottom of the title screen so the scene has a foreground,
+    and it is the game in one shape: ground, and something sharp on it.
+    """
+    rng = random.Random(seed)
+    surf = pygame.Surface((VIRTUAL_W, height), pygame.SRCALPHA)
+    crest = []
+    for x in range(0, VIRTUAL_W + 1, 10):
+        y = 70 - math.sin(x / VIRTUAL_W * math.tau * 1.5) * 22 - math.sin(x / VIRTUAL_W * math.tau * 5) * 8
+        crest.append((x, y))
+    pygame.draw.polygon(surf, colour, [(0, height)] + crest + [(VIRTUAL_W, height)])
+    for x, y in crest[::4]:
+        h = rng.randint(26, 48)
+        w = rng.randint(10, 15)
+        pygame.draw.polygon(surf, colour, [(x - w, y + 3), (x, y - h), (x + w, y + 3)])
+        pygame.draw.line(surf, rim, (x, y - h), (x + w, y + 3), 2)
+        pygame.draw.line(surf, rim, (x, y - h), (x - w, y + 3), 1)
+    pygame.draw.lines(surf, rim, False, crest, 2)
+    return surf
+
+
+def _far_ridge(colour, height=150, seed=8):
+    """A softer ridge behind the sharp one, so the foreground has depth."""
+    surf = pygame.Surface((VIRTUAL_W, height), pygame.SRCALPHA)
+    pts = [(0, height)]
+    for x in range(0, VIRTUAL_W + 1, 12):
+        y = 74 - math.sin(x / VIRTUAL_W * math.tau * 2.2 + 1.1) * 26
+        pts.append((x, y))
+    pts.append((VIRTUAL_W, height))
+    pygame.draw.polygon(surf, colour, pts)
+    return surf
+
+
+def _left_scrim(width=760, alpha=170):
+    """A soft dark wash down the left, so the menu always has something to sit on."""
+    surf = pygame.Surface((width, VIRTUAL_H), pygame.SRCALPHA)
+    for x in range(width):
+        a = int(alpha * (1 - x / width) ** 1.6)
+        surf.fill((6, 4, 10, a), (x, 0, 1, VIRTUAL_H))
+    return surf
+
+
+def draw_character_display(surface, skin, centre, scale, t, glow=True):
+    """The equipped skin, idling, big enough to be worth having earned."""
+    bob = math.sin(t * 2.0) * 5
+    cx, cy = centre[0], centre[1] + bob
+    if glow:
+        halo = glow_circle(150, skin.scarf, 55)
+        surface.blit(halo, (cx - 150, cy - 150))
+    shadow = pygame.Surface((int(26 * scale) + 40, 22), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow, (0, 0, 0, 110), shadow.get_rect())
+    surface.blit(shadow, (cx - shadow.get_width() // 2, centre[1] + int(17 * scale) + 6))
+    draw_skin_preview(surface, skin, (cx, cy), scale)
+
+
 class TitleScene(Scene):
     music = "menu"
+
+    # the left column everything hangs off
+    LEFT = 96
+    PANEL = pygame.Rect(902, 150, 300, 366)
 
     def __init__(self, game):
         super().__init__(game)
         self.bg = Background(THEMES["abyss"], seed=5)
         self.embers = AmbientField(VIRTUAL_W, VIRTUAL_H, (255, 110, 70), count=70, rising=True, seed=9)
+        # light enough to read as a shape against the dark sky, dark enough to
+        # still be a silhouette
+        self.ridge = _ridge_surface((27, 18, 31), (86, 46, 56))
+        self.far_ridge = _far_ridge((16, 11, 19))
+        self.scrim = _left_scrim()
         self.cam = 0.0
         save = game.save
         has_progress = save.mode["unlocked"] > 1 or save.data["total_deaths"] > 0
@@ -195,10 +262,15 @@ class TitleScene(Scene):
             MenuItem("QUIT", "quit"),
         ]
         self.has_progress = has_progress
-        self.menu = Menu(items, center=(VIRTUAL_W // 2, 496), spacing=52, width=400, size=34)
+        rows = len(items)
+        self.menu = Menu(items, center=(self.LEFT + 210, 300 + (rows - 1) * 25), spacing=50,
+                         width=420, size=34, align="split")
         self.confirm = None
         self.glitch = 0.0
         self.next_glitch = 2.5
+
+    def _skins_index(self):
+        return next((i for i, item in enumerate(self.menu.items) if item.action == "skins"), 0)
 
     def _open_quit_dialog(self):
         deaths = self.game.save.data["total_deaths"]
@@ -223,23 +295,25 @@ class TitleScene(Scene):
         audio = self.game.audio
         if self.confirm:
             action = self.confirm[1].update(dt, controls, events, audio)
-            if controls.consume("back") or action == "stay":
-                audio.play("ui_back")
+            if action == "stay" or controls.consume("back"):
                 self.confirm = None
             elif action == "quit":
-                self.game.quit()
+                self.game.running = False
             return
 
-        if controls.consume("back"):
-            audio.play("ui_back")
-            self._open_quit_dialog()
-            return
+        # the character on the right is the skins button: click it, or press right
+        for e in events:
+            if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.PANEL.collidepoint(e.pos):
+                audio.play("ui_select")
+                self.game.scenes.switch(SkinsScene(self.game))
+                return
+        if controls.consume("right") and self.menu.index != self._skins_index():
+            self.menu.index = self._skins_index()
+            audio.play("ui_move")
+
         action = self.menu.update(dt, controls, events, audio)
         if action == "play":
-            if self.game.save.difficulty_chosen:
-                self.game.start_level(self.game.continue_level())
-            else:
-                self.game.scenes.switch(DifficultyScene(self.game))
+            self.game.start_level(self.game.continue_level())
         elif action == "new":
             self.game.scenes.switch(NewGameScene(self.game) if self.has_progress
                                     else NameEntryScene(self.game))
@@ -250,29 +324,51 @@ class TitleScene(Scene):
         elif action == "settings":
             self.game.scenes.push(SettingsScene(self.game))
         elif action == "credits":
-            self.game.scenes.switch(CreditsScene(self.game, ending=False))
+            self.game.scenes.switch(CreditsScene(self.game))
         elif action == "quit":
             self._open_quit_dialog()
 
-    def draw_title(self, surface, center_y):
-        cx = VIRTUAL_W // 2
-        pulse = 1.0 + 0.015 * math.sin(self.time * 2.2)
-        glow = glow_circle(260, BLOOD, 70)
-        surface.blit(glow, (cx - 260, center_y - 260))
+    def draw_title(self, surface, y):
+        pulse = 1.0 + 0.012 * math.sin(self.time * 2.2)
+        glow = glow_circle(240, BLOOD, 60)
+        surface.blit(glow, (self.LEFT + 120 - 240, y - 240))
         if self.glitch > 0:
-            for offset, colour in ((-7, (255, 30, 60)), (7, (40, 220, 255))):
-                draw_text(surface, GAME_TITLE, (cx + offset, center_y + random.randint(-3, 3)), 112, colour,
-                          "display", alpha=150, scale=pulse)
-        draw_text(surface, GAME_TITLE, (cx, center_y), 112, PAPER, "display", shadow=DARK_BLOOD, scale=pulse)
-        spaced = "  ".join(GAME_SUBTITLE)
-        draw_text(surface, spaced, (cx, center_y + 78), 24, BLOOD, "body", bold=True)
+            for offset, colour in ((-6, (255, 30, 60)), (6, (40, 220, 255))):
+                draw_text(surface, GAME_TITLE, (self.LEFT + offset, y + random.randint(-3, 3)), 84, colour,
+                          "display", alpha=150, scale=pulse, anchor="midleft")
+        draw_text(surface, GAME_TITLE, (self.LEFT, y), 84, PAPER, "display", shadow=DARK_BLOOD,
+                  scale=pulse, anchor="midleft")
+        draw_text(surface, "  ".join(GAME_SUBTITLE), (self.LEFT + 4, y + 58), 21, BLOOD, "body",
+                  bold=True, anchor="midleft")
+
+    def draw_character(self, surface):
+        save = self.game.save
+        skin = cosmetics.equipped(save)
+        selected = self.menu.index == self._skins_index()
+        box = self.PANEL
+        panel(surface, box, fill=(16, 12, 22, 210),
+              border=(*GOLD, 200) if selected else (255, 255, 255, 46), width=3 if selected else 2)
+        draw_text(surface, "WEARING", (box.centerx, box.top + 28), 16, MUTED, bold=True)
+        draw_character_display(surface, skin, (box.centerx, box.top + 178), 4.6, self.time)
+        draw_text(surface, skin.name, (box.centerx, box.bottom - 78), 26, PAPER, "display")
+        owned = len(cosmetics.unlocked_ids(save))
+        draw_text(surface, f"{owned} of {len(cosmetics.SKINS)} skins", (box.centerx, box.bottom - 48), 17,
+                  MUTED, bold=True)
+        draw_text(surface, "SKINS", (box.centerx, box.bottom + 24), 30, GOLD if selected else MUTED,
+                  "display")
+        if save.spite:
+            draw_text(surface, f"{save.spite} {CURRENCY}", (box.centerx, box.bottom + 56), 19,
+                      GOLD, bold=True)
 
     def draw(self, surface):
         self.bg.draw(surface, self.cam)
         self.embers.draw(surface, self.cam, 0.5)
-        dim(surface, 90)
+        dim(surface, 70)
+        surface.blit(self.far_ridge, (0, VIRTUAL_H - self.far_ridge.get_height() - 26))
+        surface.blit(self.ridge, (0, VIRTUAL_H - self.ridge.get_height()))
+        surface.blit(self.scrim, (0, 0))
         surface.blit(self.game.vignette, (0, 0))
-        self.draw_title(surface, 200)
+        self.draw_title(surface, 168)
         if self.confirm:
             self.menu.draw(surface, alpha=90)
             dim(surface, 170)
@@ -283,13 +379,12 @@ class TitleScene(Scene):
             self.confirm[1].draw(surface)
             return
         self.menu.draw(surface)
+        self.draw_character(surface)
         deaths = self.game.save.data["total_deaths"]
         draw_skull(surface, (40, VIRTUAL_H - 38), 26)
-        draw_text(surface, f"{deaths} lifetime deaths", (64, VIRTUAL_H - 38), 22, PAPER, anchor="midleft")
-        spite = self.game.save.spite
-        if spite:
-            draw_text(surface, f"{spite} {CURRENCY}", (64 + 210, VIRTUAL_H - 38), 22, GOLD,
-                      bold=True, anchor="midleft")
+        name = self.game.save.player_name
+        label = f"{name}  ·  {deaths} lifetime deaths" if name else f"{deaths} lifetime deaths"
+        draw_text(surface, label, (64, VIRTUAL_H - 38), 22, PAPER, anchor="midleft")
         draw_text(surface, f"v{VERSION}  |  {STUDIO_NAME}", (VIRTUAL_W - 30, VIRTUAL_H - 38), 20, MUTED,
                   anchor="midright")
 
