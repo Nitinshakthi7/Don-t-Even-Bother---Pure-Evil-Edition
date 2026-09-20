@@ -149,9 +149,14 @@ class Menu:
                 pygame.draw.polygon(bar, (*self.accent, int(220 * a * alpha / 255)), pts)
                 bar_x = row.centerx - w // 2
                 surface.blit(bar, (bar_x, row.y))
-                # little arrow marker, gently bobbing
+
+            # The arrow sits beside the row, not beside the bar: the bar grows as
+            # the highlight slides in, so following it dragged the arrow through
+            # the text. Only the selected row gets one, so a half-faded row on the
+            # way out never leaves a second arrow behind.
+            if i == self.index:
                 bob = math.sin(self.time * 6) * 3
-                ax = bar_x - 22 + bob
+                ax = row.left - 22 + bob
                 pygame.draw.polygon(surface, PAPER, [(ax, y - 9), (ax + 12, y), (ax, y + 9)])
 
             colour = PAPER if item.enabled else DIM
