@@ -28,6 +28,7 @@ class Game:
     def __init__(self, windowed=False, unlock_all=False, start_level=None, save_path=None):
         self.levels = LEVELS
         self.save = SaveManager(len(self.levels), path=save_path, unlock_all=unlock_all)
+        self.session_death_spite = 0   # dying only pays up to a cap each session
         if windowed:
             self.save.settings["fullscreen"] = False
         self.screen = None

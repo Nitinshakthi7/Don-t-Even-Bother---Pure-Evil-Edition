@@ -12,6 +12,7 @@ from settings import (PLAYER_W, PLAYER_H, RUN_SPEED, GROUND_ACCEL, GROUND_DECEL,
                       JUMP_CUT_MULT, COYOTE_TIME, JUMP_BUFFER_TIME, PLAYER_BODY, PLAYER_OUTLINE,
                       PLAYER_SCARF, INK)
 from utils import approach, damp, clamp
+from cosmetics import DEFAULT as DEFAULT_SKIN
 
 
 def wants_jump(queued, jump_held, on_ground, auto_hop=True):
@@ -30,6 +31,7 @@ class Player:
         self.coyote_time = coyote_time      # Brutal mode is less forgiving
         self.buffer_time = buffer_time
         self.grip = 1.0                     # < 1 on ice
+        self.skin = None                    # set by the scene; drawing only, never physics
         self.reset(x, y)
 
     def reset(self, x, y):
@@ -184,18 +186,19 @@ class Player:
         body.midbottom = (int(cx), int(bottom))
 
         # scarf behind the body
+        skin = self.skin or DEFAULT_SKIN
         pts = [(int(x - cam_x), int(y - cam_y + bob * 0.3)) for x, y in self.scarf]
         if len(pts) > 1:
-            pygame.draw.lines(surface, PLAYER_SCARF, False, pts, 5)
-            pygame.draw.circle(surface, PLAYER_SCARF, pts[-1], 3)
+            pygame.draw.lines(surface, skin.scarf, False, pts, 5)
+            pygame.draw.circle(surface, skin.scarf, pts[-1], 3)
 
         # shadow body outline then body
-        pygame.draw.rect(surface, PLAYER_OUTLINE, body.inflate(4, 4), border_radius=9)
-        pygame.draw.rect(surface, PLAYER_BODY, body, border_radius=8)
-        pygame.draw.rect(surface, (222, 214, 200), (body.x, body.bottom - 7, body.w, 7),
+        pygame.draw.rect(surface, skin.outline, body.inflate(4, 4), border_radius=9)
+        pygame.draw.rect(surface, skin.body, body, border_radius=8)
+        pygame.draw.rect(surface, skin.sole, (body.x, body.bottom - 7, body.w, 7),
                          border_bottom_left_radius=8, border_bottom_right_radius=8)
         # scarf band around the neck
-        pygame.draw.rect(surface, PLAYER_SCARF, (body.x, body.y + int(h * 0.5), body.w, 5))
+        pygame.draw.rect(surface, skin.scarf, (body.x, body.y + int(h * 0.5), body.w, 5))
 
         # eyes look where we're going
         look_x = self.facing * 3 + clamp(self.vx / 120, -2, 2)
@@ -204,4 +207,4 @@ class Player:
         for side in (-1, 1):
             ex = int(cx + side * 5 + look_x)
             ey = int(body.y + h * 0.18 + look_y)
-            pygame.draw.rect(surface, INK, (ex - 2, ey, 4, eye_h), border_radius=2)
+            pygame.draw.rect(surface, skin.eyes, (ex - 2, ey, 4, eye_h), border_radius=2)

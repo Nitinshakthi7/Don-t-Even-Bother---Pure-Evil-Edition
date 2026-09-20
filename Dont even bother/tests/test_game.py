@@ -19,6 +19,9 @@ from campaign import LEVELS                                      # noqa: E402
 from world import World                                          # noqa: E402
 from player import wants_jump                                    # noqa: E402
 from utils import SaveManager, rank_for_deaths, format_time      # noqa: E402
+from economy import clear_payout, total_of, death_payout         # noqa: E402
+import cosmetics                                                 # noqa: E402
+from settings import PAYOUT, DEATH_PAYOUT_CAP                    # noqa: E402
 
 KNOWN_CHARS = set(".#~PGXKB^v<>hcxi123456789eSmuoRUTY{}Ik")
 
@@ -185,6 +188,144 @@ class TestTraps(unittest.TestCase):
         a = run(World(LEVELS[5]), 4, move=1)
         b = run(World(LEVELS[5]), 4, move=1)
         self.assertEqual((a.player.x, a.player.y, a.state), (b.player.x, b.player.y, b.state))
+
+
+class TestEconomy(unittest.TestCase):
+    """Spite is earned by playing well, never by farming deaths."""
+
+    def test_a_clean_first_clear_pays_the_most(self):
+        clean = total_of(clear_payout(0, first_clear=True, new_best_time=False, act_finished=False))
+        messy = total_of(clear_payout(40, first_clear=True, new_best_time=False, act_finished=False))
+        self.assertGreater(clean, messy)
+        self.assertEqual(messy, PAYOUT["clear"])        # a clear still pays something
+
+    def test_brutal_pays_double(self):
+        normal = total_of(clear_payout(0, True, False, True, brutal=False))
+        brutal = total_of(clear_payout(0, True, False, True, brutal=True))
+        self.assertEqual(brutal, normal * 2)
+
+    def test_replaying_a_cleared_level_only_pays_for_improving(self):
+        nothing = clear_payout(20, first_clear=False, new_best_time=False, act_finished=False)
+        better = clear_payout(20, first_clear=False, new_best_time=True, act_finished=False)
+        self.assertEqual(total_of(nothing), 0)
+        self.assertEqual(total_of(better), PAYOUT["best_time"])
+
+    def test_dying_stops_paying_at_the_cap(self):
+        paid = 0
+        for _ in range(500):
+            paid += death_payout(paid)
+        self.assertEqual(paid, DEATH_PAYOUT_CAP)
+
+    def test_a_deathless_run_beats_grinding_deaths(self):
+        """The whole point of the cap: playing well must out-earn dying on purpose."""
+        self.assertGreater(total_of(clear_payout(0, True, False, False)), DEATH_PAYOUT_CAP)
+
+
+class TestSaveUpgrade(unittest.TestCase):
+    """A version 3 save has to survive gaining a wallet."""
+
+    def _v3_save(self):
+        path = os.path.join(tempfile.mkdtemp(), "save.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"version": 3, "total_deaths": 268, "total_time": 900.0, "difficulty": "brutal",
+                       "modes": {"normal": {"unlocked": 19, "levels": {"1": {"deaths": 5}}, "completed": False},
+                                 "brutal": {"unlocked": 7, "levels": {}, "completed": False}},
+                       "settings": {"master_volume": 0.5}}, f)
+        return path
+
+    def test_old_progress_survives(self):
+        save = SaveManager(19, path=self._v3_save())
+        self.assertEqual(save.data["version"], 4)
+        self.assertEqual(save.data["total_deaths"], 268)
+        self.assertEqual(save.difficulty, "brutal")
+        self.assertEqual(save.data["modes"]["normal"]["unlocked"], 19)
+        self.assertEqual(save.data["modes"]["brutal"]["unlocked"], 7)
+        self.assertEqual(save.settings["master_volume"], 0.5)
+
+    def test_the_new_sections_appear_empty(self):
+        save = SaveManager(19, path=self._v3_save())
+        self.assertEqual(save.spite, 0)
+        self.assertEqual(save.data["cosmetics"]["equipped"], "default")
+        self.assertEqual(save.data["death_causes"], {})
+
+    def test_spending_cannot_go_negative(self):
+        save = SaveManager(19, path=self._v3_save())
+        save.add_spite(60)
+        self.assertFalse(save.spend_spite(61))
+        self.assertEqual(save.spite, 60)
+        self.assertTrue(save.spend_spite(60))
+        self.assertEqual(save.spite, 0)
+
+    def test_deaths_remember_what_killed_you(self):
+        save = SaveManager(19, path=self._v3_save())
+        save.record_death(3, "spike")
+        save.record_death(3, "spike")
+        save.record_death(4, "fake_door")
+        self.assertEqual(save.data["death_causes"], {"spike": 2, "fake_door": 1})
+
+
+class TestSkins(unittest.TestCase):
+    """Skins are looks only, bought or earned, and never given away by mistake."""
+
+    def _save(self):
+        path = os.path.join(tempfile.mkdtemp(), "save.json")
+        return SaveManager(19, path=path)
+
+    def test_you_start_with_the_default_and_nothing_else(self):
+        save = self._save()
+        self.assertEqual(cosmetics.equipped(save).id, "default")
+        self.assertEqual(cosmetics.unlocked_ids(save), {"default"})
+
+    def test_buying_needs_the_money_and_takes_it(self):
+        save = self._save()
+        ember = cosmetics.get("ember")
+        self.assertFalse(cosmetics.buy(save, ember))       # broke
+        save.add_spite(ember.cost)
+        self.assertTrue(cosmetics.buy(save, ember))
+        self.assertEqual(save.spite, 0)
+        self.assertIn("ember", cosmetics.unlocked_ids(save))
+        self.assertFalse(cosmetics.buy(save, ember))       # already owned, no double charge
+
+    def test_earned_skins_cannot_be_bought(self):
+        save = self._save()
+        save.add_spite(10000)
+        earned = cosmetics.get("summiteer")
+        self.assertEqual(earned.cost, 0)
+        self.assertFalse(cosmetics.buy(save, earned))
+        self.assertEqual(save.spite, 10000)
+
+    def test_you_can_only_wear_what_you_own(self):
+        save = self._save()
+        self.assertFalse(cosmetics.equip(save, "void"))
+        self.assertEqual(cosmetics.equipped(save).id, "default")
+        cosmetics.unlock(save, "void")
+        self.assertTrue(cosmetics.equip(save, "void"))
+        self.assertEqual(cosmetics.equipped(save).id, "void")
+
+    def test_a_revoked_skin_falls_back_instead_of_crashing(self):
+        save = self._save()
+        save.data["cosmetics"]["equipped"] = "nonsense"
+        self.assertEqual(cosmetics.equipped(save).id, "default")
+
+    def test_every_skin_is_reachable_somehow(self):
+        for skin in cosmetics.SKINS:
+            with self.subTest(skin=skin.id):
+                self.assertTrue(skin.cost > 0 or skin.achievement or skin.id == "default",
+                                f"{skin.id} can never be obtained")
+                self.assertTrue(skin.how, f"{skin.id} does not say how to get it")
+
+    def test_a_skin_cannot_change_how_the_game_plays(self):
+        """The whole point: cosmetics are drawing only, never physics."""
+        rows = ["." * 20, "." * 20, "..P" + "." * 17, "#" * 20]
+        plain, dressed = make_level(rows), make_level(rows)
+        dressed.player.skin = cosmetics.get("void")
+        for _ in range(240):
+            plain.step(FIXED_DT, 1, True, True)
+            dressed.step(FIXED_DT, 1, True, True)
+            plain.events.clear()
+            dressed.events.clear()
+        self.assertEqual((plain.player.x, plain.player.y, plain.player.vx, plain.player.vy),
+                         (dressed.player.x, dressed.player.y, dressed.player.vx, dressed.player.vy))
 
 
 class TestClimbLayout(unittest.TestCase):

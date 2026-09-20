@@ -8,7 +8,7 @@ import random
 
 import pygame
 
-from settings import (VIRTUAL_W, VIRTUAL_H, FIXED_DT, MAX_STEPS_PER_FRAME, RESPAWN_DELAY, HITSTOP_TIME,
+from settings import (CURRENCY, VIRTUAL_W, VIRTUAL_H, FIXED_DT, MAX_STEPS_PER_FRAME, RESPAWN_DELAY, HITSTOP_TIME,
                       THEMES, GAME_TITLE, GAME_SUBTITLE, STUDIO_NAME, DEVELOPER_NAME, VERSION, PAPER, MUTED, DIM, INK,
                       WHITE, BLOOD, DARK_BLOOD, EMBER, GOLD, TOXIC, PLAYER_BODY, PLAYER_SCARF,
                       TAUNTS_GENERAL, TAUNTS_BY_CAUSE, MILESTONES, RANK_COLOURS, MAX_DEATH_MARKERS, NIGHT,
@@ -20,6 +20,8 @@ from renderer import WorldRenderer
 from ui import Menu, MenuItem
 from utils import Camera, format_time, rank_for_deaths, ease_out_cubic, ease_out_back, clamp, damp, lerp_colour
 from world import World
+import cosmetics
+from economy import clear_payout, total_of, death_payout
 from player import wants_jump
 
 
@@ -184,6 +186,7 @@ class TitleScene(Scene):
             MenuItem(play_label, "play"),
             MenuItem("SELECT LEVEL", "levels"),
             MenuItem(mode_label, "difficulty"),
+            MenuItem("SKINS", "skins"),
             MenuItem("STORY MODE", "story", enabled=False, hint="coming soon"),
             MenuItem("SETTINGS", "settings"),
             MenuItem("CREDITS", "credits"),
@@ -237,6 +240,8 @@ class TitleScene(Scene):
             self.game.scenes.switch(DifficultyScene(self.game, from_title=True))
         elif action == "levels":
             self.game.scenes.switch(LevelSelectScene(self.game))
+        elif action == "skins":
+            self.game.scenes.switch(SkinsScene(self.game))
         elif action == "settings":
             self.game.scenes.push(SettingsScene(self.game))
         elif action == "credits":
@@ -276,6 +281,10 @@ class TitleScene(Scene):
         deaths = self.game.save.data["total_deaths"]
         draw_skull(surface, (40, VIRTUAL_H - 38), 26)
         draw_text(surface, f"{deaths} lifetime deaths", (64, VIRTUAL_H - 38), 22, PAPER, anchor="midleft")
+        spite = self.game.save.spite
+        if spite:
+            draw_text(surface, f"{spite} {CURRENCY}", (64 + 210, VIRTUAL_H - 38), 22, GOLD,
+                      bold=True, anchor="midleft")
         draw_text(surface, f"v{VERSION}  |  {STUDIO_NAME}", (VIRTUAL_W - 30, VIRTUAL_H - 38), 20, MUTED,
                   anchor="midright")
 
@@ -426,6 +435,152 @@ class DifficultyScene(Scene):
             self.confirm.draw(surface)
         if self.flash > 0:
             dim(surface, int(200 * self.flash), BLOOD)
+
+
+# ================================================================== skins
+def draw_skin_preview(surface, skin, center, scale=1.0, alpha=255):
+    """A little stand-in for the player, drawn the same way the real one is."""
+    w, h = int(26 * scale), int(34 * scale)
+    body = pygame.Rect(0, 0, w, h)
+    body.center = center
+    layer = pygame.Surface((w + 16, h + 16), pygame.SRCALPHA)
+    inner = pygame.Rect(8, 8, w, h)
+    pygame.draw.rect(layer, skin.outline, inner.inflate(4, 4), border_radius=int(9 * scale))
+    pygame.draw.rect(layer, skin.body, inner, border_radius=int(8 * scale))
+    pygame.draw.rect(layer, skin.sole, (inner.x, inner.bottom - int(7 * scale), inner.w, int(7 * scale)),
+                     border_bottom_left_radius=int(8 * scale), border_bottom_right_radius=int(8 * scale))
+    pygame.draw.rect(layer, skin.scarf, (inner.x, inner.y + int(h * 0.5), inner.w, max(2, int(5 * scale))))
+    pygame.draw.rect(layer, skin.scarf, (inner.x - 7, inner.y + int(h * 0.5) + 1, 8, max(2, int(4 * scale))))
+    for side in (-1, 1):
+        ex = inner.centerx + side * int(5 * scale)
+        ey = inner.y + int(h * 0.18)
+        pygame.draw.rect(layer, skin.eyes, (ex - 2, ey, max(2, int(4 * scale)), int(9 * scale)), border_radius=2)
+    if alpha < 255:
+        layer.set_alpha(alpha)
+    surface.blit(layer, (body.x - 8, body.y - 8))
+
+
+class SkinsScene(Scene):
+    """Pick what you die in. Nothing on this screen changes how the game plays."""
+
+    music = "menu"
+    COLS = 7
+
+    def __init__(self, game):
+        super().__init__(game)
+        self.bg = Background(THEMES["abyss"], seed=44)
+        self.skins = list(cosmetics.SKINS)
+        worn = cosmetics.equipped(game.save).id
+        self.index = next((i for i, s in enumerate(self.skins) if s.id == worn), 0)
+        self.anims = {}
+        self.flash = 0.0
+        self.note = None            # [text, colour, seconds left]
+
+    def _layout(self):
+        cards = []
+        for i in range(len(self.skins)):
+            col, row = i % self.COLS, i // self.COLS
+            cards.append(pygame.Rect(32 + col * 176, 168 + row * 190, 160, 170))
+        return cards
+
+    def _say(self, text, colour):
+        self.note = [text, colour, 2.4]
+
+    def _choose(self, audio):
+        save, skin = self.game.save, self.skins[self.index]
+        if cosmetics.is_unlocked(save, skin):
+            if cosmetics.equipped(save).id == skin.id:
+                audio.play("ui_move")
+                return
+            cosmetics.equip(save, skin.id)
+            audio.play("ui_select")
+            self.flash = 1.0
+            self._say(skin.name + " EQUIPPED", TOXIC)
+        elif skin.cost:
+            if cosmetics.buy(save, skin):
+                audio.play("checkpoint")
+                cosmetics.equip(save, skin.id)
+                self.flash = 1.0
+                self._say("BOUGHT " + skin.name, GOLD)
+            else:
+                audio.play("bump")
+                self._say(f"{skin.cost - save.spite} MORE {CURRENCY} NEEDED", BLOOD)
+        else:
+            audio.play("bump")
+            self._say(skin.how.upper(), MUTED)
+
+    def update(self, dt, events):
+        super().update(dt, events)
+        controls, audio = self.game.controls, self.game.audio
+        self.flash = max(0.0, self.flash - dt * 2.5)
+        if self.note:
+            self.note[2] -= dt
+            if self.note[2] <= 0:
+                self.note = None
+        old = self.index
+        if controls.consume("left"):
+            self.index = max(0, self.index - 1)
+        if controls.consume("right"):
+            self.index = min(len(self.skins) - 1, self.index + 1)
+        if controls.consume("up"):
+            self.index = max(0, self.index - self.COLS)
+        if controls.consume("down"):
+            self.index = min(len(self.skins) - 1, self.index + self.COLS)
+        cards = self._layout()
+        for e in events:
+            if e.type == pygame.MOUSEMOTION:
+                for i, rect in enumerate(cards):
+                    if rect.collidepoint(e.pos):
+                        self.index = i
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, rect in enumerate(cards):
+                    if rect.collidepoint(e.pos):
+                        self.index = i
+                        self._choose(audio)
+        if old != self.index:
+            audio.play("ui_move")
+        if controls.consume("confirm"):
+            self._choose(audio)
+        if controls.consume("back"):
+            audio.play("ui_back")
+            self.game.scenes.switch(TitleScene(self.game))
+        for i in range(len(self.skins)):
+            self.anims[i] = damp(self.anims.get(i, 0.0), 1.0 if i == self.index else 0.0, 14, dt)
+
+    def draw(self, surface):
+        self.bg.draw(surface, self.time * 12)
+        dim(surface, 160)
+        save = self.game.save
+        draw_text(surface, "SKINS", (VIRTUAL_W // 2, 56), 54, PAPER, "display", shadow=INK)
+        draw_text(surface, f"{save.spite}  {CURRENCY}", (VIRTUAL_W // 2, 102), 24, GOLD, bold=True)
+        worn = cosmetics.equipped(save).id
+        for i, (skin, r0) in enumerate(zip(self.skins, self._layout())):
+            a = self.anims.get(i, 0.0)
+            r = r0.inflate(int(12 * a), int(12 * a)).move(0, int(-5 * a))
+            owned = cosmetics.is_unlocked(save, skin)
+            border = (*GOLD, 220) if i == self.index else (255, 255, 255, 40)
+            panel(surface, r, fill=(22, 18, 30, 235) if owned else (13, 11, 17, 235),
+                  border=border, width=3 if i == self.index else 2)
+            draw_skin_preview(surface, skin, (r.centerx, r.y + 56), 1.35, 255 if owned else 45)
+            if not owned:
+                draw_lock(surface, (r.centerx, r.y + 56), 20, DIM)
+            draw_text(surface, skin.name, (r.centerx, r.y + 112), 16, PAPER if owned else MUTED, bold=True)
+            if skin.id == worn:
+                draw_text(surface, "EQUIPPED", (r.centerx, r.y + 138), 15, TOXIC, bold=True)
+            elif owned:
+                draw_text(surface, "OWNED", (r.centerx, r.y + 138), 15, MUTED, bold=True)
+            elif skin.cost:
+                draw_text(surface, f"{skin.cost} {CURRENCY}", (r.centerx, r.y + 138), 16,
+                          GOLD if save.spite >= skin.cost else DIM, bold=True)
+            else:
+                draw_text(surface, "LOCKED", (r.centerx, r.y + 138), 15, DIM, bold=True)
+        draw_text(surface, self.skins[self.index].how, (VIRTUAL_W // 2, VIRTUAL_H - 132), 24, MUTED)
+        if self.note:
+            draw_text(surface, self.note[0], (VIRTUAL_W // 2, VIRTUAL_H - 88), 28, self.note[1], bold=True)
+        draw_text(surface, "ARROWS / MOUSE  choose     ENTER  equip or buy     ESC  back",
+                  (VIRTUAL_W // 2, VIRTUAL_H - 38), 18, DIM, bold=True)
+        if self.flash > 0:
+            dim(surface, int(80 * self.flash), GOLD)
 
 
 # ================================================================== act title card
@@ -785,6 +940,7 @@ class GameScene(Scene):
         self.world = World(self.defn, self.difficulty)
         self.renderer = WorldRenderer(self.world)
         self.theme = self.renderer.theme
+        self.world.player.skin = cosmetics.equipped(game.save)   # looks only
         self.camera = Camera(self.world.width, self.world.height)
         self.camera.snap(self.world.player.centerx, self.world.player.bottom)
         self.particles = ParticleSystem()
@@ -979,24 +1135,44 @@ class GameScene(Scene):
             self.markers.pop(0)
         self.deaths += 1
         self.death_bump = 1.0
-        total = save.record_death(self.number)
+        total = save.record_death(self.number, d["cause"])
+        coin = death_payout(self.game.session_death_spite)
+        if coin:
+            self.game.session_death_spite += coin
+            save.add_spite(coin)
         self.taunt = [self._taunt_for(d["cause"], total, x, y), 0.0]
         self.dead_timer = self.world.diff["respawn"]
         self.game.session_deaths += 1
 
     def _on_win(self):
         self.win_timer = 0.9
-        new_time, new_deaths = self.game.save.record_clear(self.number, self.level_time, self.deaths)
+        save = self.game.save
+        first_clear = not save.level_stats(self.number)["completed"]
+        new_time, new_deaths = save.record_clear(self.number, self.level_time, self.deaths)
         letter, comment = rank_for_deaths(self.deaths)
+        lines = clear_payout(self.deaths, first_clear, new_time, self._act_finished(),
+                             brutal=save.difficulty == "brutal")
+        earned = total_of(lines)
+        if earned:
+            save.add_spite(earned)
+            save.save()
         self.complete_data = {"time": self.level_time, "deaths": self.deaths, "letter": letter,
-                              "comment": comment, "new_time": new_time, "new_deaths": new_deaths}
+                              "comment": comment, "new_time": new_time, "new_deaths": new_deaths,
+                              "payout": lines, "earned": earned}
+
+    def _act_finished(self):
+        """True when this level was the last one of its act."""
+        levels = self.game.levels
+        act = levels[self.number - 1].act
+        later = [lv for lv in levels if lv.act == act and lv.number > self.number]
+        return not later
 
     def _open_complete(self):
         last = self.number >= len(self.game.levels)
         pygame.mouse.set_visible(True)
         items =[MenuItem("FINISH" if last else "NEXT LEVEL", "next"), MenuItem("RETRY", "retry"),
                  MenuItem("LEVEL SELECT", "levels")]
-        self.complete = {"t": 0.0, "menu": Menu(items, center=(VIRTUAL_W // 2, 500), spacing=50, width=360,
+        self.complete = {"t": 0.0, "menu": Menu(items, center=(VIRTUAL_W // 2, 520), spacing=50, width=360,
                                                 size=30), **self.complete_data}
 
     # ------------------------------------------------------------ update
@@ -1296,7 +1472,7 @@ class GameScene(Scene):
         t = d["t"]
         dim(surface, int(170 * min(1.0, t / 0.4)), NIGHT)
         rise = ease_out_cubic(min(1.0, t / 0.5))
-        box = pygame.Rect(0, 0, 640, 500)
+        box = pygame.Rect(0, 0, 640, 540)
         box.center = (VIRTUAL_W // 2, VIRTUAL_H // 2 + int(40 * (1 - rise)))
         panel(surface, box, border=(*self.theme["accent"], 160), width=3)
         heading = "LEVEL CLEARED" if d["deaths"] < 60 else "LEVEL CLEARED... SOMEHOW"
@@ -1321,5 +1497,11 @@ class GameScene(Scene):
             pygame.draw.rect(surface, colour, badge, 5, border_radius=18)
             draw_text(surface, d["letter"], badge.center, 90, colour, "display", scale=2.2 - 1.2 * s)
             draw_text(surface, d["comment"], (box.centerx, box.top + 262), 26, colour)
+        if t > 1.5 and d.get("earned"):
+            k2 = ease_out_cubic(clamp((t - 1.5) / 0.6, 0, 1))
+            draw_text(surface, f"+{int(round(d['earned'] * k2))} {CURRENCY}",
+                      (box.centerx, box.top + 312), 34, GOLD, "display")
+            reasons = "  ·  ".join(label.lower() for label, _ in d["payout"])
+            draw_text(surface, reasons, (box.centerx, box.top + 344), 17, MUTED, bold=True)
         if t > 0.8:
             d["menu"].draw(surface)

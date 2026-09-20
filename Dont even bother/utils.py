@@ -86,7 +86,7 @@ class SaveManager:
     Normal doesn't unlock anything in Brutal. Lifetime deaths are shared.
     """
 
-    VERSION = 3
+    VERSION = 4
 
     def __init__(self, level_count, path=None, unlock_all=False):
         self.path = path or settings.SAVE_FILE
@@ -100,8 +100,19 @@ class SaveManager:
     def _fresh_mode():
         return {"unlocked": 1, "levels": {}, "completed": False}
 
-    def _fresh_data(self):
+    @staticmethod
+    def _fresh_extras():
+        """Everything that is not campaign progress: currency, cosmetics, records."""
         return {
+            "spite": 0,                       # the currency, spent on cosmetics
+            "cosmetics": {"unlocked": ["default"], "equipped": "default"},
+            "achievements": {},               # id -> True once earned
+            "death_causes": {},               # cause -> how many times it got you
+            "ghost": {"best": {}, "beaten": []},
+        }
+
+    def _fresh_data(self):
+        data = {
             "version": self.VERSION,
             "total_deaths": 0,
             "total_time": 0.0,
@@ -109,6 +120,8 @@ class SaveManager:
             "modes": {"normal": self._fresh_mode(), "brutal": self._fresh_mode()},
             "settings": dict(DEFAULT_SETTINGS),
         }
+        data.update(self._fresh_extras())
+        return data
 
     # -------------------------------------------------------------- disk
     def load(self):
@@ -128,15 +141,24 @@ class SaveManager:
         merged = dict(DEFAULT_SETTINGS)
         merged.update(raw.get("settings", {}))
         self.data["settings"] = merged
-        if version == 2:
+        if version in (3, self.VERSION):
+            # v3 is v4 without the currency and cosmetics, so it just gains them
+            self.data["difficulty"] = raw.get("difficulty")
+            for mode in ("normal", "brutal"):
+                self.data["modes"][mode].update(raw.get("modes", {}).get(mode, {}))
+            for key, default in self._fresh_extras().items():
+                value = raw.get(key, default)
+                if isinstance(default, dict) and isinstance(value, dict):
+                    merged_extra = dict(default)
+                    merged_extra.update(value)
+                    value = merged_extra
+                self.data[key] = value
+            self.dirty = version != self.VERSION
+        elif version == 2:
             # v2 had one set of progress: it becomes Normal-mode progress
             self.data["modes"]["normal"] = {"unlocked": raw.get("unlocked", 1), "levels": raw.get("levels", {}),
                                             "completed": raw.get("game_completed", False)}
             self.dirty = True
-        elif version == self.VERSION:
-            self.data["difficulty"] = raw.get("difficulty")
-            for mode in ("normal", "brutal"):
-                self.data["modes"][mode].update(raw.get("modes", {}).get(mode, {}))
         else:
             self.dirty = True     # v1 or unknown: only lifetime deaths survive
 
@@ -199,11 +221,34 @@ class SaveManager:
             return self.level_count
         return min(self.mode["unlocked"], self.level_count)
 
-    def record_death(self, level_num):
+    def record_death(self, level_num, cause=None):
         self.data["total_deaths"] += 1
         self.level_stats(level_num)["deaths"] += 1
+        if cause:
+            causes = self.data["death_causes"]
+            causes[cause] = causes.get(cause, 0) + 1
         self.dirty = True
         return self.data["total_deaths"]
+
+    # -------------------------------------------------------------- currency
+    @property
+    def spite(self):
+        return self.data["spite"]
+
+    def add_spite(self, amount):
+        if amount <= 0:
+            return 0
+        self.data["spite"] += int(amount)
+        self.dirty = True
+        return self.data["spite"]
+
+    def spend_spite(self, amount):
+        """Returns False and changes nothing if you cannot afford it."""
+        if amount > self.data["spite"]:
+            return False
+        self.data["spite"] -= int(amount)
+        self.save()
+        return True
 
     def add_play_time(self, seconds):
         self.data["total_time"] += seconds

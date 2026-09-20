@@ -77,6 +77,22 @@ ACTS = {
     3: {"name": "ACT III", "title": "THE CLIMB", "tagline": "Every step up is a step you can lose."},
 }
 
+# ---------------------------------------------------------------- economy
+# Spite is earned by playing and spent on cosmetics. It never touches the
+# rules of the game: nothing you buy makes a level easier.
+CURRENCY = "SPITE"
+PAYOUT = {
+    "clear": 25,            # first time you finish a level
+    "few_deaths": 40,       # ...and you did it with FEW_DEATHS or fewer
+    "deathless": 100,       # ...and you did it without dying at all
+    "best_time": 15,        # a new personal best on a level you had already cleared
+    "act": 150,             # finishing a whole act
+    "death": 1,             # a pity payment, capped per session (see below)
+}
+FEW_DEATHS = 3
+DEATH_PAYOUT_CAP = 30       # so farming deaths is never worth it
+BRUTAL_PAYOUT = 2.0         # Brutal pays double, because Brutal costs double
+
 # ---------------------------------------------------------------- game feel
 RESPAWN_DELAY = 0.8
 HITSTOP_TIME = 0.08
