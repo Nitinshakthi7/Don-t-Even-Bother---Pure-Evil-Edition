@@ -131,7 +131,8 @@ class Menu:
             item.set(round(min(1.0, max(0.0, value)), 2))
 
     # ------------------------------------------------------------ drawing
-    def draw(self, surface, alpha=255):
+    def draw(self, surface, alpha=255, show_cursor=True):
+        """show_cursor=False dims the highlight, for when focus is elsewhere."""
         cx, cy = self.center
         top = cy - (len(self.items) - 1) * self.spacing / 2
         for i, item in enumerate(self.items):
@@ -141,7 +142,7 @@ class Menu:
             row.center = (cx, y)
             item.rect = row
             # highlight bar: a slanted blade shape that slides in
-            if a > 0.02:
+            if a > 0.02 and show_cursor:
                 w = int(row.width * (0.55 + 0.45 * a))
                 bar = pygame.Surface((w, row.height), pygame.SRCALPHA)
                 slant = 16
@@ -154,7 +155,7 @@ class Menu:
             # the highlight slides in, so following it dragged the arrow through
             # the text. Only the selected row gets one, so a half-faded row on the
             # way out never leaves a second arrow behind.
-            if i == self.index:
+            if i == self.index and show_cursor:
                 bob = math.sin(self.time * 6) * 3
                 ax = row.left - 22 + bob
                 pygame.draw.polygon(surface, PAPER, [(ax, y - 9), (ax + 12, y), (ax, y + 9)])

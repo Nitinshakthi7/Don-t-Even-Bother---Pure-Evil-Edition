@@ -255,7 +255,6 @@ class TitleScene(Scene):
             items.append(MenuItem("CONTINUE", "play"))
         items += [
             MenuItem("PLAY", "play_menu"),
-            MenuItem("SKINS", "skins"),
             MenuItem("SETTINGS", "settings"),
             MenuItem("CREDITS", "credits"),
             MenuItem("QUIT", "quit"),
@@ -267,9 +266,7 @@ class TitleScene(Scene):
         self.confirm = None
         self.glitch = 0.0
         self.next_glitch = 2.5
-
-    def _skins_index(self):
-        return next((i for i, item in enumerate(self.menu.items) if item.action == "skins"), 0)
+        self.focus = "menu"        # or "character", the skins button on the right
 
     def _open_quit_dialog(self):
         deaths = self.game.save.data["total_deaths"]
@@ -300,15 +297,36 @@ class TitleScene(Scene):
                 self.game.running = False
             return
 
-        # the character on the right is the skins button: click it, or press right
+        # the character on the right IS the skins button
         for e in events:
-            if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.PANEL.collidepoint(e.pos):
+            if e.type == pygame.MOUSEMOTION:
+                where = "character" if self.PANEL.collidepoint(e.pos) else None
+                if where is None and any(item.rect.collidepoint(e.pos) for item in self.menu.items):
+                    where = "menu"
+                if where and where != self.focus:
+                    self.focus = where
+                    audio.play("ui_move", 0.6)
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.PANEL.collidepoint(e.pos):
                 audio.play("ui_select")
                 self.game.scenes.switch(SkinsScene(self.game))
                 return
-        if controls.consume("right") and self.menu.index != self._skins_index():
-            self.menu.index = self._skins_index()
+
+        if self.focus == "character":
+            if controls.consume("confirm"):
+                audio.play("ui_select")
+                self.game.scenes.switch(SkinsScene(self.game))
+                return
+            if controls.consume("left") or controls.consume("up") or controls.consume("down"):
+                self.focus = "menu"
+                audio.play("ui_move")
+            elif controls.consume("back"):
+                self._open_quit_dialog()
+            return
+
+        if controls.consume("right"):
+            self.focus = "character"
             audio.play("ui_move")
+            return
 
         action = self.menu.update(dt, controls, events, audio)
         if action == "play":
@@ -343,7 +361,7 @@ class TitleScene(Scene):
     def draw_character(self, surface):
         save = self.game.save
         skin = cosmetics.equipped(save)
-        selected = self.menu.index == self._skins_index()
+        selected = self.focus == "character"
         # No frame around this: the character stands in the same scene the menu
         # does. PANEL is only the click target.
         box = self.PANEL
@@ -357,6 +375,9 @@ class TitleScene(Scene):
                   MUTED, bold=True)
         draw_text(surface, "SKINS", (box.centerx, box.bottom + 16), 30, GOLD if selected else MUTED,
                   "display")
+        if not selected:
+            bob = math.sin(self.time * 4) * 2
+            draw_text(surface, "\u2192", (box.left - 30 + bob, box.centery), 30, DIM, "display")
         if selected:
             pygame.draw.line(surface, GOLD, (box.centerx - 52, box.bottom + 36),
                              (box.centerx + 52, box.bottom + 36), 2)
@@ -382,7 +403,7 @@ class TitleScene(Scene):
             draw_text(surface, self.confirm[0], (VIRTUAL_W // 2, box.top + 60), 28, PAPER)
             self.confirm[1].draw(surface)
             return
-        self.menu.draw(surface)
+        self.menu.draw(surface, show_cursor=self.focus == "menu")
         self.draw_character(surface)
         deaths = self.game.save.data["total_deaths"]
         draw_skull(surface, (40, VIRTUAL_H - 38), 26)
