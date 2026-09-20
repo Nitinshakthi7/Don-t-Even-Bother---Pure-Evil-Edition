@@ -1904,6 +1904,7 @@ class RaceScene(GameScene):
         super().__init__(game, number)
         self.ghost = ghosts.Ghost(self.defn, self.difficulty)
         self.result = None           # set when someone crosses the line
+        self.started = False         # neither runner moves until you do
         self.intro = 0.0
 
     # ------------------------------------------------------------ racing
@@ -1914,6 +1915,7 @@ class RaceScene(GameScene):
         self.renderer = WorldRenderer(self.world)
         self.ghost = ghosts.Ghost(self.defn, self.difficulty)
         self.camera.snap(self.world.player.centerx, self.world.player.bottom)
+        self.started = False
         self.level_time = 0.0
         self.dead_timer = 0.0
         self.hitstop = 0.0
@@ -1993,14 +1995,23 @@ class RaceScene(GameScene):
         if self.intro < 0.35:
             move, jump_held, self.jump_queued = 0, False, False
 
+        if not self.started:
+            # The bot replays a recording, so it would react on the exact frame
+            # every time while you are still reaching for a key. Nothing moves -
+            # not your world, not the ghost's, not the clock - until you go.
+            if self.intro >= 0.35 and (move or jump_held or self.jump_queued):
+                self.started = True
+            else:
+                self._update_visuals(dt)
+                return
+
         self.accumulator += dt
         steps = 0
         while self.accumulator >= FIXED_DT and steps < MAX_STEPS_PER_FRAME:
             pressed = wants_jump(self.jump_queued, jump_held, self.world.player.on_ground,
                                  self.game.save.settings.get("auto_hop", True))
             self.world.step(FIXED_DT, move, jump_held, pressed)
-            if self.intro >= 0.35:
-                self.ghost.step(FIXED_DT)          # the ghost only runs once you do
+            self.ghost.step(FIXED_DT)              # started on the same frame you did
             self.jump_queued = False
             self.accumulator -= FIXED_DT
             steps += 1
@@ -2008,8 +2019,9 @@ class RaceScene(GameScene):
                 self._process_world_events()
             if self.world.state != "play":
                 break
-        if self.world.state == "play" and self.intro >= 0.35:
-            self.level_time += dt      # the clock starts when you do, same as the ghost
+        # The bot's par is World.time from the solver's run, so read the clock the
+        # same way here: same mechanism, same rounding, nothing to argue about.
+        self.level_time = self.world.time
         self._update_visuals(dt)
 
     # ------------------------------------------------------------ draw
@@ -2030,6 +2042,13 @@ class RaceScene(GameScene):
     def _draw_hud(self, c):
         super()._draw_hud(c)
         if self.result:
+            return
+        if not self.started:
+            pulse = 0.6 + 0.4 * math.sin(self.time * 5)
+            draw_text(c, "MOVE TO START", (VIRTUAL_W // 2, 104), 36, GOLD, "display",
+                      alpha=int(255 * pulse), shadow=INK)
+            draw_text(c, f"the bot waits for you  ·  par {format_time(self.ghost.par)}",
+                      (VIRTUAL_W // 2, 140), 18, MUTED, bold=True)
             return
         gap = self.level_time - self.ghost.time
         ahead = gap <= 0
