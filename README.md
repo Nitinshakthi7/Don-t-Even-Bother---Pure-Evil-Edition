@@ -81,6 +81,11 @@ Progress is saved separately for each mode.
   - it notices when you die on the same spot again ("Third time. Same spot.")
   - it greets you back to levels you've failed a lot
   - it has different insults for Normal and Brutal players
+- **Spite, skins and awards:**
+  - **Spite** is earned by clearing levels, clearing them cleanly, beating your own times and finishing acts. Brutal pays double. Dying pays one coin, capped at 30 a session, so farming deaths is never worth it
+  - **14 skins**: four bought with Spite, nine earned, one free. They change how you look and nothing else
+  - **12 achievements**, most of them earned by accident: dying to every cause, falling for ten fake doors, finishing Act I on Brutal
+- **Race the Bot:** the solver's verified run, replayed live beside you as a ghost. Every level has a par time that is provably achievable, because a bot actually achieved it. Beat it and the Ghost skin is yours
 - **Streamer mode:** big on-screen stats (total deaths, session deaths, all-time deaths on this level). The Climb also shows an altitude meter with your deaths marked on it.
 - **Movement:**
   - fixed 120 Hz deterministic physics
@@ -107,6 +112,7 @@ Progress is saved separately for each mode.
 | Restart from checkpoint | `R` | Y |
 | Pause | `Esc` / `P` | Start |
 | Fullscreen | `F11` / `Alt+Enter` | – |
+| Switch skins / awards tab | `Tab` | – |
 
 ## Running it
 

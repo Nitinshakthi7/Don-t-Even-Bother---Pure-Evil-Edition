@@ -22,6 +22,7 @@ from utils import SaveManager, rank_for_deaths, format_time      # noqa: E402
 from economy import clear_payout, total_of, death_payout         # noqa: E402
 import cosmetics                                                 # noqa: E402
 import achievements                                              # noqa: E402
+import ghosts                                                    # noqa: E402
 from settings import PAYOUT, DEATH_PAYOUT_CAP                    # noqa: E402
 
 KNOWN_CHARS = set(".#~PGXKB^v<>hcxi123456789eSmuoRUTY{}Ik")
@@ -402,6 +403,53 @@ class TestAchievements(unittest.TestCase):
         save = self._save()
         save.data["modes"]["normal"]["levels"] = None      # nonsense on purpose
         self.assertEqual(achievements.check(save, 19), [])
+
+
+class TestGhosts(unittest.TestCase):
+    """The bot you race is the same verified run the tests replay."""
+
+    def test_every_level_has_a_ghost_in_both_modes(self):
+        missing = [(lv.number, d) for lv in LEVELS for d in ("normal", "brutal")
+                   if not ghosts.available(lv.number, d)]
+        self.assertEqual(missing, [], f"no recording for {missing}")
+
+    def test_par_times_are_real_numbers(self):
+        for lv in LEVELS:
+            for difficulty in ("normal", "brutal"):
+                with self.subTest(level=lv.number, difficulty=difficulty):
+                    par = ghosts.par(lv.number, difficulty)
+                    self.assertIsNotNone(par)
+                    self.assertGreater(par, 0)
+
+    def test_a_missing_recording_answers_politely(self):
+        self.assertIsNone(ghosts.par(999, "normal"))
+        self.assertFalse(ghosts.available(999, "normal"))
+
+    def test_the_ghost_finishes_exactly_on_its_par(self):
+        for number in (1, 9):
+            with self.subTest(level=number):
+                ghost = ghosts.Ghost(LEVELS[number - 1], "normal")
+                steps = 0
+                while not ghost.finished and steps < 100000:
+                    ghost.step()
+                    steps += 1
+                self.assertTrue(ghost.won, "the ghost failed its own level")
+                self.assertAlmostEqual(ghost.time, ghost.par, places=2)
+
+    def test_the_ghost_cannot_touch_your_run(self):
+        """It runs in its own World, so racing must not change the game you play."""
+        number = 1
+        alone = World(LEVELS[number - 1], "normal")
+        watched = World(LEVELS[number - 1], "normal")
+        ghost = ghosts.Ghost(LEVELS[number - 1], "normal")
+        for _ in range(600):
+            alone.step(FIXED_DT, 1, True, True)
+            watched.step(FIXED_DT, 1, True, True)
+            ghost.step()
+            alone.events.clear()
+            watched.events.clear()
+        self.assertEqual((alone.player.x, alone.player.y, alone.state),
+                         (watched.player.x, watched.player.y, watched.state))
 
 
 class TestClimbLayout(unittest.TestCase):

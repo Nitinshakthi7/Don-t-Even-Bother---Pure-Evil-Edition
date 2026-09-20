@@ -22,7 +22,9 @@ from utils import Camera, format_time, rank_for_deaths, ease_out_cubic, ease_out
 from world import World
 import cosmetics
 import achievements
+import ghosts
 from economy import clear_payout, total_of, death_payout
+from settings import PAYOUT
 from player import wants_jump
 
 
@@ -187,6 +189,7 @@ class TitleScene(Scene):
             MenuItem(play_label, "play"),
             MenuItem("SELECT LEVEL", "levels"),
             MenuItem(mode_label, "difficulty"),
+            MenuItem("RACE THE BOT", "race"),
             MenuItem("SKINS", "skins"),
             MenuItem("STORY MODE", "story", enabled=False, hint="coming soon"),
             MenuItem("SETTINGS", "settings"),
@@ -243,6 +246,8 @@ class TitleScene(Scene):
             self.game.scenes.switch(LevelSelectScene(self.game))
         elif action == "skins":
             self.game.scenes.switch(SkinsScene(self.game))
+        elif action == "race":
+            self.game.scenes.switch(RaceSelectScene(self.game))
         elif action == "settings":
             self.game.scenes.push(SettingsScene(self.game))
         elif action == "credits":
@@ -1213,7 +1218,8 @@ class GameScene(Scene):
             save.save()
         self.complete_data = {"time": self.level_time, "deaths": self.deaths, "letter": letter,
                               "comment": comment, "new_time": new_time, "new_deaths": new_deaths,
-                              "payout": lines, "earned": earned}
+                              "payout": lines, "earned": earned,
+                              "par": ghosts.par(self.number, self.difficulty)}
         self._check_achievements()
 
     def _check_achievements(self):
@@ -1233,7 +1239,7 @@ class GameScene(Scene):
         pygame.mouse.set_visible(True)
         items =[MenuItem("FINISH" if last else "NEXT LEVEL", "next"), MenuItem("RETRY", "retry"),
                  MenuItem("LEVEL SELECT", "levels")]
-        self.complete = {"t": 0.0, "menu": Menu(items, center=(VIRTUAL_W // 2, 520), spacing=50, width=360,
+        self.complete = {"t": 0.0, "menu": Menu(items, center=(VIRTUAL_W // 2, 545), spacing=50, width=360,
                                                 size=30), **self.complete_data}
 
     # ------------------------------------------------------------ update
@@ -1420,6 +1426,7 @@ class GameScene(Scene):
         cam = (self.camera.view_x() + ox, self.camera.view_y() + oy)
         self.renderer.draw_back(c, cam, self.time)
         self.renderer.draw_world(c, cam, self.time)
+        self._draw_world_extras(c, cam)
         if self.game.save.settings["death_markers"]:
             self.renderer.draw_death_markers(c, cam, self.markers, self.time)
         if w.state != "won" or self.win_timer > 0.6:
@@ -1439,6 +1446,9 @@ class GameScene(Scene):
             self._draw_pause(surface)
         if self.complete:
             self._draw_complete(surface)
+
+    def _draw_world_extras(self, canvas, cam):
+        """Nothing extra in a normal run; the race scene paints its ghost here."""
 
     def _draw_hud(self, c):
         s = self.game.save.settings
@@ -1552,7 +1562,7 @@ class GameScene(Scene):
         t = d["t"]
         dim(surface, int(170 * min(1.0, t / 0.4)), NIGHT)
         rise = ease_out_cubic(min(1.0, t / 0.5))
-        box = pygame.Rect(0, 0, 640, 540)
+        box = pygame.Rect(0, 0, 640, 580)
         box.center = (VIRTUAL_W // 2, VIRTUAL_H // 2 + int(40 * (1 - rise)))
         panel(surface, box, border=(*self.theme["accent"], 160), width=3)
         heading = "LEVEL CLEARED" if d["deaths"] < 60 else "LEVEL CLEARED... SOMEHOW"
@@ -1567,6 +1577,15 @@ class GameScene(Scene):
             draw_text(surface, value, (box.left + 330, y), 34, PAPER, "display", anchor="midright")
             if best and t > 1.1:
                 draw_text(surface, "NEW BEST", (box.left + 350, y), 18, TOXIC, bold=True, anchor="midleft")
+        if d.get("par") and t > 1.0:
+            gap = d["time"] - d["par"]
+            if gap > 0:
+                nudge = f"THE BOT DID IT IN {format_time(d['par'])}  ·  YOU WERE {gap:.1f}s SLOWER"
+            else:
+                nudge = f"THE BOT NEEDED {format_time(d['par'])}  ·  YOU WERE FASTER"
+            draw_text(surface, nudge, (box.centerx, box.top + 224), 17, MUTED, bold=True)
+            draw_text(surface, "RACE THE BOT  ·  MAIN MENU", (box.centerx, box.top + 246), 15, GOLD,
+                      bold=True)
         # rank stamp slams in
         if t > 1.2:
             s = ease_out_back(min(1.0, (t - 1.2) / 0.3))
@@ -1576,12 +1595,289 @@ class GameScene(Scene):
             pygame.draw.rect(surface, INK, badge.inflate(int(20 * (1 - s)), int(20 * (1 - s))), border_radius=18)
             pygame.draw.rect(surface, colour, badge, 5, border_radius=18)
             draw_text(surface, d["letter"], badge.center, 90, colour, "display", scale=2.2 - 1.2 * s)
-            draw_text(surface, d["comment"], (box.centerx, box.top + 262), 26, colour)
+            draw_text(surface, d["comment"], (box.centerx, box.top + 278), 26, colour)
         if t > 1.5 and d.get("earned"):
             k2 = ease_out_cubic(clamp((t - 1.5) / 0.6, 0, 1))
             draw_text(surface, f"+{int(round(d['earned'] * k2))} {CURRENCY}",
-                      (box.centerx, box.top + 312), 34, GOLD, "display")
+                      (box.centerx, box.top + 330), 34, GOLD, "display")
             reasons = "  ·  ".join(label.lower() for label, _ in d["payout"])
-            draw_text(surface, reasons, (box.centerx, box.top + 344), 17, MUTED, bold=True)
+            draw_text(surface, reasons, (box.centerx, box.top + 360), 16, MUTED, bold=True)
         if t > 0.8:
             d["menu"].draw(surface)
+
+
+# ================================================================== racing the bot
+class RaceScene(GameScene):
+    """You against the solver's verified run, side by side, from the same frame.
+
+    The ghost lives in its own World and replays recorded inputs, so it cannot
+    touch you. Dying just restarts the race - there are no deaths to count here
+    and nothing to lose but time.
+    """
+
+    def __init__(self, game, number):
+        super().__init__(game, number)
+        self.ghost = ghosts.Ghost(self.defn, self.difficulty)
+        self.result = None           # set when someone crosses the line
+        self.intro = 0.0
+
+    # ------------------------------------------------------------ racing
+    def _restart_race(self):
+        """Both runners go back to the start. No death count, no checkpoints."""
+        self.world = World(self.defn, self.difficulty)
+        self.world.player.skin = cosmetics.equipped(self.game.save)
+        self.renderer = WorldRenderer(self.world)
+        self.ghost = ghosts.Ghost(self.defn, self.difficulty)
+        self.camera.snap(self.world.player.centerx, self.world.player.bottom)
+        self.level_time = 0.0
+        self.dead_timer = 0.0
+        self.hitstop = 0.0
+        self.accumulator = 0.0
+
+    def _on_death(self, d):
+        """Dying costs you the run and nothing else."""
+        self.game.audio.play("death")
+        self.camera.add_trauma(0.5)
+        self.flash, self.flash_colour = 0.3, BLOOD
+        self.particles.burst(d["x"], d["y"], 30, [BLOOD, (170, 20, 40)], speed=(120, 460),
+                             life=(0.4, 1.0), size=(2, 4.5), gravity=1300, drag=0.3)
+        self.dead_timer = 0.45
+
+    def _on_win(self):
+        self.win_timer = 0.6
+        save = self.game.save
+        mine, theirs = self.level_time, self.ghost.par
+        beaten = mine < theirs
+        record = save.data["ghost"]["best"].get(str(self.number))
+        if record is None or mine < record:
+            save.data["ghost"]["best"][str(self.number)] = round(mine, 3)
+        if beaten and str(self.number) not in save.data["ghost"]["beaten"]:
+            save.data["ghost"]["beaten"].append(str(self.number))
+        save.save()
+        earned = 0
+        if beaten:
+            earned = PAYOUT["clear"] * 2
+            save.add_spite(earned)
+            save.save()
+        self.result = {"t": 0.0, "mine": mine, "theirs": theirs, "beaten": beaten, "earned": earned,
+                       "menu": Menu([MenuItem("RACE AGAIN", "again"), MenuItem("PICK A LEVEL", "levels"),
+                                     MenuItem("MAIN MENU", "menu")],
+                                    center=(VIRTUAL_W // 2, 486), spacing=48, width=340, size=28)}
+        self._check_achievements()
+
+    # ------------------------------------------------------------ update
+    def update(self, dt, events):
+        Scene.update(self, dt, events)
+        controls, audio = self.game.controls, self.game.audio
+        for toast in self.toasts:
+            toast[1] += dt
+        self.toasts = [t for t in self.toasts if t[1] < 4.2]
+
+        if self.result:
+            self.result["t"] += dt
+            self._update_visuals(dt)
+            action = self.result["menu"].update(dt, controls, events, audio) if self.result["t"] > 0.5 else None
+            if action == "again":
+                self.game.scenes.switch(RaceScene(self.game, self.number))
+            elif action == "levels":
+                self.game.scenes.switch(RaceSelectScene(self.game, self.number))
+            elif action == "menu" or controls.consume("back"):
+                self.game.scenes.switch(TitleScene(self.game))
+            return
+
+        if controls.consume("back") or controls.consume("pause"):
+            audio.play("ui_back")
+            self.game.scenes.switch(RaceSelectScene(self.game, self.number))
+            return
+        if controls.consume("restart"):
+            self._restart_race()
+            return
+
+        self.intro += dt
+        if self.dead_timer > 0:
+            self.dead_timer -= dt
+            self._update_visuals(dt)
+            if self.dead_timer <= 0:
+                self._restart_race()
+            return
+
+        if controls.was_pressed("jump"):
+            self.jump_queued = True
+        move = (1 if controls.held("right") else 0) - (1 if controls.held("left") else 0)
+        jump_held = controls.held("jump")
+        if self.intro < 0.35:
+            move, jump_held, self.jump_queued = 0, False, False
+
+        self.accumulator += dt
+        steps = 0
+        while self.accumulator >= FIXED_DT and steps < MAX_STEPS_PER_FRAME:
+            pressed = wants_jump(self.jump_queued, jump_held, self.world.player.on_ground,
+                                 self.game.save.settings.get("auto_hop", True))
+            self.world.step(FIXED_DT, move, jump_held, pressed)
+            if self.intro >= 0.35:
+                self.ghost.step(FIXED_DT)          # the ghost only runs once you do
+            self.jump_queued = False
+            self.accumulator -= FIXED_DT
+            steps += 1
+            if self.world.events:
+                self._process_world_events()
+            if self.world.state != "play":
+                break
+        if self.world.state == "play" and self.intro >= 0.35:
+            self.level_time += dt      # the clock starts when you do, same as the ghost
+        self._update_visuals(dt)
+
+    # ------------------------------------------------------------ draw
+    def draw(self, surface):
+        super().draw(surface)
+        if self.result:
+            self._draw_result(surface)
+
+    def _draw_world_extras(self, canvas, cam):
+        """The ghost, drawn behind everything the player cares about."""
+        if self.ghost.finished and self.ghost.won:
+            return
+        layer = pygame.Surface((VIRTUAL_W, VIRTUAL_H), pygame.SRCALPHA)
+        self.ghost.player.draw(layer, cam[0], cam[1])
+        layer.set_alpha(110)
+        canvas.blit(layer, (0, 0))
+
+    def _draw_hud(self, c):
+        super()._draw_hud(c)
+        if self.result:
+            return
+        gap = self.level_time - self.ghost.time
+        ahead = gap <= 0
+        colour = TOXIC if ahead else BLOOD
+        label = f"{'-' if ahead else '+'}{abs(gap):.2f}s"
+        draw_text(c, label, (VIRTUAL_W // 2, 92), 34, colour, "display", shadow=INK)
+        draw_text(c, "AHEAD OF THE BOT" if ahead else "BEHIND THE BOT",
+                  (VIRTUAL_W // 2, 122), 16, colour, bold=True)
+        draw_text(c, f"BOT PAR  {format_time(self.ghost.par)}", (VIRTUAL_W // 2, VIRTUAL_H - 28), 18,
+                  MUTED, bold=True)
+
+    def _draw_result(self, surface):
+        d = self.result
+        t = d["t"]
+        dim(surface, int(180 * min(1.0, t / 0.4)), NIGHT)
+        box = pygame.Rect(0, 0, 620, 420)
+        box.center = (VIRTUAL_W // 2, VIRTUAL_H // 2 + int(30 * (1 - ease_out_cubic(min(1.0, t / 0.5)))))
+        panel(surface, box, border=(*(GOLD if d["beaten"] else BLOOD), 200), width=3)
+        heading = "YOU BEAT THE BOT" if d["beaten"] else "THE BOT WINS"
+        draw_text(surface, heading, (box.centerx, box.top + 54), 44, GOLD if d["beaten"] else PAPER,
+                  "display", shadow=INK)
+        rows = [("YOU", format_time(d["mine"]), GOLD if d["beaten"] else PAPER),
+                ("BOT", format_time(d["theirs"]), PAPER if d["beaten"] else GOLD)]
+        for i, (label, value, colour) in enumerate(rows):
+            y = box.top + 120 + i * 50
+            draw_text(surface, label, (box.left + 80, y), 24, MUTED, bold=True, anchor="midleft")
+            draw_text(surface, value, (box.right - 80, y), 34, colour, "display", anchor="midright")
+        margin = abs(d["mine"] - d["theirs"])
+        draw_text(surface, f"by {margin:.2f} seconds", (box.centerx, box.top + 212), 22, MUTED)
+        if d["earned"]:
+            draw_text(surface, f"+{d['earned']} {CURRENCY}", (box.centerx, box.top + 248), 26, GOLD, bold=True)
+        if t > 0.5:
+            d["menu"].draw(surface)
+
+
+class RaceSelectScene(Scene):
+    """Which level to race on. Only ones you have already finished yourself."""
+
+    music = "menu"
+    COLS = 5
+
+    def __init__(self, game, selected=None):
+        super().__init__(game)
+        self.bg = Background(THEMES["neon"], seed=77)
+        self.levels = [lv for lv in game.levels if ghosts.available(lv.number, game.save.difficulty)]
+        self.index = 0
+        if selected:
+            self.index = next((i for i, lv in enumerate(self.levels) if lv.number == selected), 0)
+        self.anims = {}
+
+    def _layout(self):
+        return [pygame.Rect(72 + (i % self.COLS) * 228, 162 + (i // self.COLS) * 126, 208, 110)
+                for i in range(len(self.levels))]
+
+    def _playable(self, defn):
+        return self.game.save.level_stats(defn.number)["completed"]
+
+    def _choose(self, audio):
+        defn = self.levels[self.index]
+        if self._playable(defn):
+            audio.play("ui_select")
+            self.game.scenes.switch(RaceScene(self.game, defn.number))
+        else:
+            audio.play("bump")
+
+    def update(self, dt, events):
+        super().update(dt, events)
+        controls, audio = self.game.controls, self.game.audio
+        old = self.index
+        if controls.consume("left"):
+            self.index = max(0, self.index - 1)
+        if controls.consume("right"):
+            self.index = min(len(self.levels) - 1, self.index + 1)
+        if controls.consume("up"):
+            self.index = max(0, self.index - self.COLS)
+        if controls.consume("down"):
+            self.index = min(len(self.levels) - 1, self.index + self.COLS)
+        cards = self._layout()
+        for e in events:
+            if e.type == pygame.MOUSEMOTION:
+                for i, r in enumerate(cards):
+                    if r.collidepoint(e.pos):
+                        self.index = i
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, r in enumerate(cards):
+                    if r.collidepoint(e.pos):
+                        self.index = i
+                        self._choose(audio)
+        if old != self.index:
+            audio.play("ui_move")
+        if controls.consume("confirm"):
+            self._choose(audio)
+        if controls.consume("back"):
+            audio.play("ui_back")
+            self.game.scenes.switch(TitleScene(self.game))
+        for i in range(len(self.levels)):
+            self.anims[i] = damp(self.anims.get(i, 0.0), 1.0 if i == self.index else 0.0, 14, dt)
+
+    def draw(self, surface):
+        self.bg.draw(surface, self.time * 14)
+        dim(surface, 165)
+        save = self.game.save
+        draw_text(surface, "RACE THE BOT", (VIRTUAL_W // 2, 58), 54, PAPER, "display", shadow=INK)
+        draw_text(surface, "The solver proved every level. Now beat its time.",
+                  (VIRTUAL_W // 2, 104), 20, MUTED)
+        beaten = save.data["ghost"]["beaten"]
+        for i, (defn, r0) in enumerate(zip(self.levels, self._layout())):
+            a = self.anims.get(i, 0.0)
+            r = r0.inflate(int(12 * a), int(12 * a)).move(0, int(-5 * a))
+            playable = self._playable(defn)
+            won = str(defn.number) in beaten
+            theme = THEMES[defn.theme]
+            panel(surface, r, fill=(22, 18, 30, 235) if playable else (13, 11, 17, 235),
+                  border=(*theme["accent"], 210) if i == self.index else (255, 255, 255, 34),
+                  width=3 if i == self.index else 2)
+            draw_text(surface, f"{defn.number:02d}", (r.left + 18, r.top + 26), 30, PAPER if playable else DIM,
+                      "display", anchor="midleft")
+            draw_text(surface, defn.name.upper(), (r.left + 18, r.top + 54), 16,
+                      theme["accent"] if playable else DIM, bold=True, anchor="midleft")
+            if not playable:
+                draw_lock(surface, (r.right - 30, r.top + 30), 18, DIM)
+                draw_text(surface, "clear it first", (r.left + 18, r.bottom - 22), 15, DIM,
+                          bold=True, anchor="midleft")
+                continue
+            par = ghosts.par(defn.number, save.difficulty)
+            draw_text(surface, f"BOT {format_time(par)}", (r.left + 18, r.bottom - 38), 17, MUTED,
+                      bold=True, anchor="midleft")
+            mine = save.data["ghost"]["best"].get(str(defn.number))
+            if mine is not None:
+                draw_text(surface, f"YOU {format_time(mine)}", (r.left + 18, r.bottom - 18), 17,
+                          GOLD if won else MUTED, bold=True, anchor="midleft")
+            if won:
+                draw_text(surface, "BEATEN", (r.right - 18, r.bottom - 22), 16, TOXIC, bold=True,
+                          anchor="midright")
+        draw_text(surface, "ARROWS / MOUSE  choose     ENTER  race     ESC  back",
+                  (VIRTUAL_W // 2, VIRTUAL_H - 38), 18, DIM, bold=True)
