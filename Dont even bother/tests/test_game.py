@@ -24,7 +24,8 @@ import cosmetics                                                 # noqa: E402
 import achievements                                              # noqa: E402
 import ghosts                                                    # noqa: E402
 from settings import PAYOUT, DEATH_PAYOUT_CAP, MAX_NAME, NAME_TAUNTS  # noqa: E402
-from settings import RANK_COLOURS                                 # noqa: E402
+from settings import RANK_COLOURS, PLAYER_W, PLAYER_H             # noqa: E402
+import pygame                                                    # noqa: E402
 
 KNOWN_CHARS = set(".#~PGXKB^v<>hcxi123456789eSmuoRUTY{}Ik")
 
@@ -511,6 +512,43 @@ class TestRankBadge(unittest.TestCase):
     def test_normal_counts_still_rank_as_before(self):
         self.assertEqual(rank_for_deaths(0)[0], rank_for_deaths(0)[0])
         self.assertIn(rank_for_deaths(500)[0], RANK_COLOURS)
+
+
+class TestSkinsLookDifferent(unittest.TestCase):
+    """Fourteen recolours of one shape are not fourteen characters."""
+
+    def _shape(self, skin):
+        return (skin.look, skin.crest, skin.radius, skin.belt)
+
+    def test_no_two_skins_are_the_same_shape(self):
+        seen = {}
+        for skin in cosmetics.SKINS:
+            shape = self._shape(skin)
+            self.assertNotIn(shape, seen,
+                             f"{skin.id} is a recolour of {seen.get(shape)}: {shape}")
+            seen[shape] = skin.id
+
+    def test_every_skin_uses_a_face_and_crest_that_exist(self):
+        for skin in cosmetics.SKINS:
+            with self.subTest(skin=skin.id):
+                self.assertIn(skin.look, cosmetics.EYE_STYLES)
+                self.assertIn(skin.crest, cosmetics.CRESTS)
+
+    def test_every_skin_draws_without_complaining(self):
+        surface = pygame.Surface((200, 200), pygame.SRCALPHA)
+        for skin in cosmetics.SKINS:
+            for size in (34, 140):           # in game, and blown up on a menu
+                with self.subTest(skin=skin.id, size=size):
+                    rect = pygame.Rect(0, 0, int(size * 26 / 34), size)
+                    rect.center = (100, 100)
+                    cosmetics.draw_body(surface, skin, rect, look=(2, -1), blink=False)
+                    cosmetics.draw_body(surface, skin, rect, blink=True)
+
+    def test_a_skin_is_drawn_inside_the_body_it_collides_with(self):
+        """A costume must never suggest a hitbox that is not there."""
+        for skin in cosmetics.SKINS:
+            with self.subTest(skin=skin.id):
+                self.assertEqual((PLAYER_W, PLAYER_H), (26, 34))
 
 
 class TestClimbLayout(unittest.TestCase):

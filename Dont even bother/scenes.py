@@ -565,25 +565,18 @@ class DifficultyScene(Scene):
 
 # ================================================================== skins
 def draw_skin_preview(surface, skin, center, scale=1.0, alpha=255):
-    """A little stand-in for the player, drawn the same way the real one is."""
+    """A stand-in for the player, drawn by the same code that draws the real one."""
     w, h = int(26 * scale), int(34 * scale)
-    body = pygame.Rect(0, 0, w, h)
-    body.center = center
-    layer = pygame.Surface((w + 16, h + 16), pygame.SRCALPHA)
-    inner = pygame.Rect(8, 8, w, h)
-    pygame.draw.rect(layer, skin.outline, inner.inflate(4, 4), border_radius=int(9 * scale))
-    pygame.draw.rect(layer, skin.body, inner, border_radius=int(8 * scale))
-    pygame.draw.rect(layer, skin.sole, (inner.x, inner.bottom - int(7 * scale), inner.w, int(7 * scale)),
-                     border_bottom_left_radius=int(8 * scale), border_bottom_right_radius=int(8 * scale))
-    pygame.draw.rect(layer, skin.scarf, (inner.x, inner.y + int(h * 0.5), inner.w, max(2, int(5 * scale))))
-    pygame.draw.rect(layer, skin.scarf, (inner.x - 7, inner.y + int(h * 0.5) + 1, 8, max(2, int(4 * scale))))
-    for side in (-1, 1):
-        ex = inner.centerx + side * int(5 * scale)
-        ey = inner.y + int(h * 0.18)
-        pygame.draw.rect(layer, skin.eyes, (ex - 2, ey, max(2, int(4 * scale)), int(9 * scale)), border_radius=2)
+    pad = int(18 * scale)
+    layer = pygame.Surface((w + pad * 2, h + pad * 2), pygame.SRCALPHA)
+    inner = pygame.Rect(pad, pad, w, h)
+    # a stub of scarf, since the real one trails behind a moving player
+    pygame.draw.rect(layer, skin.scarf, (inner.x - int(7 * scale), inner.y + int(h * 0.5) + 1,
+                                         int(8 * scale), max(2, int(4 * scale))))
+    cosmetics.draw_body(layer, skin, inner)
     if alpha < 255:
         layer.set_alpha(alpha)
-    surface.blit(layer, (body.x - 8, body.y - 8))
+    surface.blit(layer, (center[0] - layer.get_width() // 2, center[1] - layer.get_height() // 2))
 
 
 class SkinsScene(Scene):

@@ -12,6 +12,7 @@ from settings import (PLAYER_W, PLAYER_H, RUN_SPEED, GROUND_ACCEL, GROUND_DECEL,
                       JUMP_CUT_MULT, COYOTE_TIME, JUMP_BUFFER_TIME, PLAYER_BODY, PLAYER_OUTLINE,
                       PLAYER_SCARF, INK)
 from utils import approach, damp, clamp
+import cosmetics
 from cosmetics import DEFAULT as DEFAULT_SKIN
 
 
@@ -192,19 +193,8 @@ class Player:
             pygame.draw.lines(surface, skin.scarf, False, pts, 5)
             pygame.draw.circle(surface, skin.scarf, pts[-1], 3)
 
-        # shadow body outline then body
-        pygame.draw.rect(surface, skin.outline, body.inflate(4, 4), border_radius=9)
-        pygame.draw.rect(surface, skin.body, body, border_radius=8)
-        pygame.draw.rect(surface, skin.sole, (body.x, body.bottom - 7, body.w, 7),
-                         border_bottom_left_radius=8, border_bottom_right_radius=8)
-        # scarf band around the neck
-        pygame.draw.rect(surface, skin.scarf, (body.x, body.y + int(h * 0.5), body.w, 5))
-
-        # eyes look where we're going
+        # the body itself is drawn by cosmetics, so the character looks the same
+        # here as it does on the menus
         look_x = self.facing * 3 + clamp(self.vx / 120, -2, 2)
         look_y = clamp(self.vy / 400, -2, 3)
-        eye_h = 2 if self.blink > 0 else 9
-        for side in (-1, 1):
-            ex = int(cx + side * 5 + look_x)
-            ey = int(body.y + h * 0.18 + look_y)
-            pygame.draw.rect(surface, skin.eyes, (ex - 2, ey, 4, eye_h), border_radius=2)
+        cosmetics.draw_body(surface, skin, body, look=(look_x, look_y), blink=self.blink > 0)
