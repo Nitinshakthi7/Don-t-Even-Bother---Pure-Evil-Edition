@@ -146,6 +146,11 @@ class Game:
     def _create_window(self, fullscreen):
         """pygame.SCALED draws our fixed 1280x720 canvas scaled to fit any
         screen, adds black bars when needed and fixes mouse coordinates for us."""
+        # Never ask SDL for fullscreen in a browser: it tears down the WASM
+        # runtime. A save carrying fullscreen=True would otherwise crash the
+        # game on every load, with no way back in to turn it off.
+        if WEB:
+            fullscreen = False
         flags = pygame.SCALED | (pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE)
         for attempt in ({"flags": flags, "vsync": 1}, {"flags": flags}, {"flags": 0}):
             try:
@@ -155,7 +160,29 @@ class Game:
                 continue
         raise RuntimeError("Could not open a game window")
 
+    @staticmethod
+    def _browser_fullscreen(value):
+        """Ask the page to go fullscreen, rather than SDL.
+
+        Browsers only grant this from a real user gesture, and the game loop
+        runs a tick after the keypress, so it may simply be refused - which is
+        fine. What matters is that it fails quietly instead of taking the
+        whole runtime down the way SDL's toggle does.
+        """
+        try:
+            import platform as _pf
+            doc = _pf.window.document
+            if value:
+                doc.documentElement.requestFullscreen()
+            else:
+                doc.exitFullscreen()
+        except Exception as err:
+            print(f"[display] browser refused fullscreen: {err}")
+
     def set_fullscreen(self, value):
+        if WEB:
+            self._browser_fullscreen(value)
+            return
         if bool(value) != bool(pygame.display.get_surface().get_flags() & pygame.FULLSCREEN):
             pygame.display.toggle_fullscreen()
 
