@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Don't Even Bother — Pure Evil Edition</title>
+<meta name="description" content="A precision platformer that cheats. 19 levels, every one of them lying to you. Play free in your browser.">
+<meta property="og:title" content="Don't Even Bother — Pure Evil Edition">
+<meta property="og:description" content="A precision platformer that cheats. Play free in your browser.">
+<meta property="og:type" content="website">
+<link rel="icon" href="play/favicon.png">
+<style>
+  :root{
+    --blood:#d62438; --dark-blood:#6e0a1a; --paper:#f4eee4; --muted:#8c84a0;
+    --dim:#504a60; --ink:#0e0b14; --gold:#ffcc4d; --ember:#ff7a30; --night:#161220;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--ink); color:var(--paper); min-height:100vh;
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    line-height:1.6; overflow-x:hidden;
+  }
+  /* a faint grid, like the level geometry underneath everything */
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; opacity:.35;
+    background:
+      linear-gradient(rgba(140,132,160,.05) 1px,transparent 1px) 0 0/40px 40px,
+      linear-gradient(90deg,rgba(140,132,160,.05) 1px,transparent 1px) 0 0/40px 40px,
+      radial-gradient(ellipse at 50% 0%,rgba(110,10,26,.45),transparent 60%);
+  }
+  .wrap{position:relative;max-width:1000px;margin:0 auto;padding:0 16px}
+
+  header{text-align:center;padding:14vh 0 8vh}
+  h1{
+    font-size:clamp(2.4rem,9vw,5.6rem); font-weight:900; letter-spacing:-.02em;
+    line-height:.95; text-transform:uppercase;
+    text-shadow:3px 3px 0 var(--dark-blood), 6px 6px 0 rgba(0,0,0,.4);
+  }
+  .sub{
+    color:var(--blood); font-weight:700; letter-spacing:.42em; text-transform:uppercase;
+    font-size:clamp(.6rem,2.2vw,1rem); margin-top:1.1rem; padding-left:.42em;
+  }
+  .tag{color:var(--muted);margin:2rem auto 0;max-width:34rem;font-size:1.05rem}
+
+  .buttons{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-top:3rem}
+  .btn{
+    display:inline-block; padding:1rem 2.6rem; border-radius:3px; font-weight:800;
+    text-decoration:none; text-transform:uppercase; letter-spacing:.1em; font-size:1rem;
+    border:2px solid transparent; transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn-play{background:var(--blood);color:var(--paper);box-shadow:0 4px 0 var(--dark-blood)}
+  .btn-play:hover{transform:translateY(-2px);box-shadow:0 6px 0 var(--dark-blood)}
+  .btn-play:active{transform:translateY(2px);box-shadow:0 2px 0 var(--dark-blood)}
+  .btn-dl{border-color:var(--dim);color:var(--paper)}
+  .btn-dl:hover{border-color:var(--muted);transform:translateY(-2px)}
+  .note{color:var(--dim);font-size:.82rem;margin-top:1.1rem}
+
+  .facts{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px; background:rgba(80,74,96,.3); border:1px solid rgba(80,74,96,.3);
+    margin:7vh 0; border-radius:4px; overflow:hidden;
+  }
+  .fact{background:var(--night);padding:1.6rem 1rem;text-align:center}
+  .fact b{display:block;font-size:2.1rem;color:var(--gold);font-weight:900;line-height:1}
+  .fact span{color:var(--muted);font-size:.76rem;text-transform:uppercase;letter-spacing:.14em}
+
+  h2{
+    font-size:1.5rem;text-transform:uppercase;letter-spacing:.08em;
+    margin-bottom:1.6rem;color:var(--paper);
+  }
+  h2::after{content:"";display:block;width:52px;height:3px;background:var(--blood);margin-top:.7rem}
+  section{margin:7vh 0}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1.1rem}
+  .card{
+    background:var(--night); border:1px solid rgba(80,74,96,.4);
+    border-left:3px solid var(--blood); padding:1.4rem; border-radius:3px;
+  }
+  .card h3{font-size:1rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem}
+  .card p{color:var(--muted);font-size:.93rem}
+
+  footer{
+    border-top:1px solid rgba(80,74,96,.3); margin-top:9vh; padding:2.6rem 0 3.4rem;
+    text-align:center; color:var(--dim); font-size:.84rem;
+  }
+  footer a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--dim)}
+  footer a:hover{color:var(--paper)}
+  @media (prefers-reduced-motion:no-preference){
+    header h1{animation:drop .6s cubic-bezier(.2,.8,.3,1) both}
+    @keyframes drop{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Don't Even<br>Bother</h1>
+    <div class="sub">Pure Evil Edition</div>
+    <p class="tag">
+      A precision platformer that cheats. The floor is a suggestion, the exit
+      moves, and the tutorial is lying to you. Nineteen levels of it.
+    </p>
+    <div class="buttons">
+      <a class="btn btn-play" href="play/">Play in browser</a>
+      <a class="btn btn-dl" href="DOWNLOAD_URL">Download for Windows</a>
+    </div>
+    <p class="note">Free. No install, no account — it runs in the tab.</p>
+  </header>
+
+  <div class="facts">
+    <div class="fact"><b>19</b><span>Levels</span></div>
+    <div class="fact"><b>14</b><span>Characters</span></div>
+    <div class="fact"><b>12</b><span>Achievements</span></div>
+    <div class="fact"><b>&infin;</b><span>Deaths</span></div>
+  </div>
+
+  <section>
+    <h2>What you're in for</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>It lies to you</h3>
+        <p>Solid ground gives way. Safe ledges aren't. Every level teaches you
+           a rule and then breaks it exactly once.</p>
+      </div>
+      <div class="card">
+        <h3>Race a bot that's better</h3>
+        <p>A solver plays every level perfectly. Race its ghost — it waits for
+           you to move first, so losing is entirely your own doing.</p>
+      </div>
+      <div class="card">
+        <h3>Spend your suffering</h3>
+        <p>Dying earns SPITE. Spend it on fourteen characters, each a different
+           shape, because the only reward for pain is a hat.</p>
+      </div>
+      <div class="card">
+        <h3>Two ways to lose</h3>
+        <p>Normal is unkind. Brutal removes the kindness. Both are beatable —
+           every level is machine-proven to have a solution.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p><strong>DON'T EVEN BOTHER</strong> — Pure Evil Edition v2.0.0</p>
+    <p style="margin-top:.5rem">
+      Built by Nitin M &middot; <a href="https://github.com/Nitinshakthi7">LAZYHUNTER7</a>
+    </p>
+    <p style="margin-top:.9rem;font-size:.78rem">
+      Keyboard, gamepad or touch. Progress saves in your browser.
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>

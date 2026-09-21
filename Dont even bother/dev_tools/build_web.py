@@ -21,6 +21,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # cache that file hard. A version in the name makes every build a new URL, so
 # "I tested it" always means the build you just made.
 VERSION = os.environ.get("WEB_BUILD_TAG", "v2")
+# where the packaged .exe lives; a 26MB binary does not belong in a static deploy
+DOWNLOAD_URL = os.environ.get(
+    "DOWNLOAD_URL",
+    "https://github.com/Nitinshakthi7/Don-t-Even-Bother---Pure-Evil-Edition/releases/latest")
 STAGE = os.path.join(ROOT, "build", f"deb-{VERSION}")
 
 # what the browser build actually needs
@@ -86,6 +90,33 @@ def write_host_config(web_dir):
     return path
 
 
+def assemble_site(web_dir):
+    """Put the landing page and the game together into one folder.
+
+    Vercel (or any static host) gets pointed at this: "/" is the landing page
+    people arrive on, "/play/" is the game itself. Keeping the game in its own
+    directory means its index.html never fights with the landing one.
+    """
+    site = os.path.join(ROOT, "build", f"site-{VERSION}")
+    if os.path.exists(site):
+        shutil.rmtree(site)
+    os.makedirs(site)
+
+    landing = os.path.join(ROOT, "web", "index.html")
+    if not os.path.exists(landing):
+        raise SystemExit("missing web/index.html - the landing page")
+
+    page = open(landing, encoding="utf-8").read()
+    # the .exe is too big to sit in a static deploy, so it lives on Releases
+    page = page.replace("DOWNLOAD_URL", DOWNLOAD_URL)
+    with open(os.path.join(site, "index.html"), "w", encoding="utf-8") as fh:
+        fh.write(page)
+
+    shutil.copytree(web_dir, os.path.join(site, "play"))
+    write_host_config(site)
+    return site
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build the browser version.")
     parser.add_argument("--serve", action="store_true", help="serve it on localhost:8000 afterwards")
@@ -117,10 +148,13 @@ def main():
     web_dir = os.path.join(STAGE, "build", "web")
     if os.path.isdir(web_dir):
         write_host_config(web_dir)
+        site = assemble_site(web_dir)
+        size = sum(os.path.getsize(os.path.join(r, f))
+                   for r, _, fs in os.walk(site) for f in fs)
         print()
-        print("deploy this folder:")
-        print(f"  {web_dir}")
-        print(f"  npx vercel deploy --prod {web_dir}")
+        print(f"site assembled ({size / 1024:.0f} KB): landing page at /, game at /play/")
+        print(f"  {site}")
+        print(f'  npx vercel deploy --prod "{site}"')
 
 
 if __name__ == "__main__":

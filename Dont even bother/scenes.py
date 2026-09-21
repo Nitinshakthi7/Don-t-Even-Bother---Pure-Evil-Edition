@@ -1753,6 +1753,9 @@ class GameScene(Scene):
             self._draw_pause(surface)
         if self.complete:
             self._draw_complete(surface)
+        elif not self.paused:
+            # only while actually playing: the menus take taps as clicks
+            self.game.controls.touch.draw(surface)
 
     def _draw_world_extras(self, canvas, cam):
         """Nothing extra in a normal run; the race scene paints its ghost here."""

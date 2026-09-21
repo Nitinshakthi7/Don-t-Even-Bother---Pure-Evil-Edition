@@ -4,6 +4,8 @@
 
 import pygame
 
+from touch import TouchControls
+
 # Every action can be triggered by any of these keys
 KEYMAP = {
     "left": (pygame.K_a, pygame.K_LEFT),
@@ -40,6 +42,7 @@ class Controls:
         self._pad_buttons_held = set()
         self._pad_dirs_prev = set()
         self.pads = {}
+        self.touch = TouchControls()      # stays invisible until a finger lands
         self.last_device = "keyboard"
         pygame.joystick.init()
         for i in range(pygame.joystick.get_count()):
@@ -58,6 +61,7 @@ class Controls:
         """Call once per frame before handling events."""
         self.pressed.clear()
         self.released.clear()
+        self.touch.begin_frame()
         # Turn stick/d-pad directions into "pressed" edges for menus
         dirs = self._pad_directions()
         for d in dirs - self._pad_dirs_prev:
@@ -65,6 +69,10 @@ class Controls:
         self._pad_dirs_prev = dirs
 
     def process_event(self, event):
+        if self.touch.handle_event(event):
+            self.last_device = "touch"
+            self.pressed.update(self.touch.pressed)
+            return
         if event.type == pygame.KEYDOWN:
             self.last_device = "keyboard"
             for action, keys in KEYMAP.items():
@@ -112,6 +120,8 @@ class Controls:
         return dirs
 
     def held(self, action):
+        if self.touch.held(action):
+            return True
         keys = pygame.key.get_pressed()
         if any(keys[k] for k in KEYMAP.get(action, ())):
             return True
