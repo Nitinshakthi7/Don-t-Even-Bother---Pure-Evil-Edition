@@ -289,7 +289,11 @@ async def main():
         except Exception:
             pass
     os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "1")   # smooth scaling
-    pygame.mixer.pre_init(44100, -16, 2, 512)
+    # 512 samples is ~12ms of audio. That is fine natively, but in a browser
+    # the audio callback shares the main thread with the game and cannot always
+    # refill in time, and every underrun is an audible click. A bigger buffer
+    # costs a little latency on sound effects and stops the crackling.
+    pygame.mixer.pre_init(44100, -16, 2, 2048 if WEB else 512)
     pygame.init()
     if args.demo:
         # the demo uses a throwaway save so it never touches your real progress

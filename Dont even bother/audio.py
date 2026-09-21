@@ -309,7 +309,9 @@ class AudioManager:
         if not self.enabled:
             print("[audio] numpy or mixer unavailable - running without sound.")
             return
-        pygame.mixer.set_num_channels(32)
+        # fewer channels to mix on web, where the CPU is already stretched
+        from settings import WEB
+        pygame.mixer.set_num_channels(16 if WEB else 32)
         pygame.mixer.set_reserved(1)
         self.music_channel = pygame.mixer.Channel(0)
         np.random.seed(7)
