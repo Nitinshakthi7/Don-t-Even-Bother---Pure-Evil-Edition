@@ -106,6 +106,10 @@ class SceneManager:
             self.stack[-2].draw(surface)
         if self.top:
             self.top.draw(surface)
+            # Menus draw their own BACK button, since a phone has no ESC key.
+            # Gameplay puts its own pad up, so it is left alone here.
+            if not isinstance(self.top, GameScene):
+                self.game.controls.touch.draw(surface, "menu")
         if self.fade > 0:
             dim(surface, int(255 * ease_out_cubic(self.fade)))
 
@@ -1751,11 +1755,12 @@ class GameScene(Scene):
         surface.blit(c, (0, 0))
         if self.paused:
             self._draw_pause(surface)
+            self.game.controls.touch.draw(surface, "menu")
         if self.complete:
             self._draw_complete(surface)
         elif not self.paused:
             # only while actually playing: the menus take taps as clicks
-            self.game.controls.touch.draw(surface)
+            self.game.controls.touch.draw(surface, "play")
 
     def _draw_world_extras(self, canvas, cam):
         """Nothing extra in a normal run; the race scene paints its ghost here."""

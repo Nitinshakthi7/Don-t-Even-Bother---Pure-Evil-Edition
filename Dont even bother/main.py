@@ -1,9 +1,8 @@
-# /// script
-# dependencies = ["numpy"]
-# ///
-# The block above is PEP 723 metadata. pygbag reads it and fetches a numpy
-# wheel when the game runs in a browser; every sound is synthesised with
-# numpy, so without it the web build is silent. Ignored when run normally.
+# The web build used to declare numpy here so pygbag would fetch a wheel to
+# synthesise the audio. That cost an 11MB download and a second and a half
+# of maths before the game could start, which on a phone is most of the
+# wait. The sounds are baked to files at build time instead - see
+# dev_tools/prerender_audio.py.
 # I am adding comments for me to easily understand the codes
 # main.py - starts the game: sets up the window, loads everything, and runs
 # the main loop (read input -> update the current scene -> draw -> repeat).

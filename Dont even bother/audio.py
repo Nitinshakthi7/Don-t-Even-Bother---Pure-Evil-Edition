@@ -3,9 +3,12 @@
 # when the game starts, so the game needs no audio files at all.
 # numpy does the heavy lifting; if it is missing the game simply runs silent.
 
+import os
 import random
 
 import pygame
+
+from settings import BASE_PATH, WEB
 
 try:
     import numpy as np
@@ -16,6 +19,11 @@ RATE = 44100
 
 # what the audio system found at startup, shown on the web build's overlay
 STATUS = "audio not started"
+
+# Baked by dev_tools/prerender_audio.py. The browser build ships these
+# instead of an 11MB numpy wheel it would otherwise download just to do
+# the same maths on a phone.
+SOUND_DIR = os.path.join(BASE_PATH, "sounds")
 
 
 # ------------------------------------------------------------------ synth building blocks
@@ -118,6 +126,22 @@ def _to_sound(mono, volume=1.0, stereo_spread=0.0):
     stereo = np.stack([left, right], axis=1)
     stereo = np.clip(stereo * 32767, -32768, 32767).astype(np.int16)
     return pygame.sndarray.make_sound(np.ascontiguousarray(stereo))
+
+
+def _load_folder(kind):
+    """Load one folder of baked wavs, keyed by filename."""
+    folder = os.path.join(SOUND_DIR, kind)
+    out = {}
+    if not os.path.isdir(folder):
+        return out
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".ogg"):
+            continue
+        try:
+            out[name[:-4]] = pygame.mixer.Sound(os.path.join(folder, name))
+        except pygame.error as err:
+            print(f"[audio] could not load {name}: {err}")
+    return out
 
 
 def _note(name):
@@ -304,22 +328,31 @@ class AudioManager:
         self.sounds = {}
         self.music = {}
         self.current_track = None
-        self.enabled = np is not None and pygame.mixer.get_init() is not None
+        # Synthesise when numpy is here (desktop keeps full 44kHz stereo), and
+        # fall back to the baked files otherwise - which is the web build.
+        self.prebaked = (np is None or WEB) and os.path.isdir(SOUND_DIR)
+        self.enabled = (np is not None or self.prebaked) and pygame.mixer.get_init() is not None
         self._report(f"numpy={np is not None} mixer={pygame.mixer.get_init()}")
         if not self.enabled:
             print("[audio] numpy or mixer unavailable - running without sound.")
             return
         # fewer channels to mix on web, where the CPU is already stretched
-        from settings import WEB
         pygame.mixer.set_num_channels(16 if WEB else 32)
         pygame.mixer.set_reserved(1)
         self.music_channel = pygame.mixer.Channel(0)
-        np.random.seed(7)
+        if np is not None:
+            np.random.seed(7)      # same noise every run
         import time as _time
         _t0 = _time.perf_counter()
-        self.sounds = _build_sfx()
-        self.music = {name: _to_sound(data, 0.8) for name, data in _build_music().items()}
-        self._report(f"ok: {len(self.sounds)} sfx + {len(self.music)} tracks "
+        if self.prebaked:
+            self.sounds = _load_folder("sfx")
+            self.music = _load_folder("music")
+            how = "files"
+        else:
+            self.sounds = _build_sfx()
+            self.music = {name: _to_sound(data, 0.8) for name, data in _build_music().items()}
+            how = "synth"
+        self._report(f"ok ({how}): {len(self.sounds)} sfx + {len(self.music)} tracks "
                      f"in {_time.perf_counter() - _t0:.1f}s")
 
     @staticmethod

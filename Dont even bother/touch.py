@@ -17,12 +17,21 @@ import pygame
 from settings import VIRTUAL_W, VIRTUAL_H
 
 # action, centre, radius, label
-LAYOUT = (
-    ("left",  (130, VIRTUAL_H - 120), 78, "◀"),
-    ("right", (310, VIRTUAL_H - 120), 78, "▶"),
-    ("jump",  (VIRTUAL_W - 150, VIRTUAL_H - 130), 92, "JUMP"),
-    ("pause", (VIRTUAL_W - 54, 54), 38, "II"),
+PLAY_LAYOUT = (
+    ("left",    (130, VIRTUAL_H - 120), 78, "◀"),
+    ("right",   (310, VIRTUAL_H - 120), 78, "▶"),
+    ("jump",    (VIRTUAL_W - 150, VIRTUAL_H - 130), 92, "JUMP"),
+    ("restart", (VIRTUAL_W - 58, 148), 40, "↻"),
+    ("pause",   (VIRTUAL_W - 58, 58), 40, "II"),
 )
+
+# Menus are mostly tapped directly, but every one of them expects an ESC to
+# back out of, and a phone has no ESC.
+MENU_LAYOUT = (
+    ("back", (92, VIRTUAL_H - 66), 54, "BACK"),
+)
+
+LAYOUTS = {"play": PLAY_LAYOUT, "menu": MENU_LAYOUT}
 
 # "up" is the same button as jump for anything that reads a direction
 ALIASES = {"jump": ("up",)}
@@ -36,6 +45,7 @@ class TouchControls:
         self._fingers = {}            # finger id -> action it is holding
         self.pressed = set()          # actions that went down this frame
         self._faces = {}              # cached button art, drawn once
+        self.mode = "menu"            # which set of buttons is on screen
 
     # ------------------------------------------------------------ geometry
     @staticmethod
@@ -58,9 +68,9 @@ class TouchControls:
         return (nx * win_w - pad_x) / scale, (ny * win_h - pad_y) / scale
 
     @staticmethod
-    def _hit(x, y):
+    def _hit(x, y, mode):
         """Which button, if any, is under this point."""
-        for action, (cx, cy), radius, _label in LAYOUT:
+        for action, (cx, cy), radius, _label in LAYOUTS[mode]:
             # a little forgiveness: fingers are fatter than a mouse pointer
             if math.hypot(x - cx, y - cy) <= radius * 1.25:
                 return action
@@ -80,12 +90,18 @@ class TouchControls:
             self._fingers.pop(finger, None)
             return True
 
-        action = self._hit(*self._to_virtual(event.x, event.y))
+        where = self._to_virtual(event.x, event.y)
+        action = self._hit(*where, self.mode)
         was = self._fingers.get(finger)
-        if action == was:
-            return True
         if action is None:
-            self._fingers.pop(finger, None)      # slid off the button
+            self._fingers.pop(finger, None)      # slid off the button, or missed
+            # A tap on empty space is how you use a menu. This has to come
+            # before the "nothing changed" check below, because a tap that
+            # hits no button leaves both action and was as None.
+            if event.type == pygame.FINGERDOWN:
+                self._as_click(where)
+            return True
+        if action == was:
             return True
         # sliding from one button onto another counts as pressing the new one
         self._fingers[finger] = action
@@ -93,6 +109,23 @@ class TouchControls:
         for alias in ALIASES.get(action, ()):
             self.pressed.add(alias)
         return True
+
+    @staticmethod
+    def _as_click(where):
+        """Report a tap that missed the buttons as a mouse click.
+
+        Menus are all built around clicking, and a phone has no mouse. The
+        motion goes first so anything that highlights on hover has caught up
+        by the time the click lands.
+        """
+        pos = (int(where[0]), int(where[1]))
+        for event, extra in ((pygame.MOUSEMOTION, {"rel": (0, 0), "buttons": (0, 0, 0)}),
+                             (pygame.MOUSEBUTTONDOWN, {"button": 1}),
+                             (pygame.MOUSEBUTTONUP, {"button": 1})):
+            try:
+                pygame.event.post(pygame.event.Event(event, pos=pos, touch=True, **extra))
+            except pygame.error:
+                return
 
     # ------------------------------------------------------------ queries
     def held(self, action):
@@ -126,9 +159,15 @@ class TouchControls:
         self._faces[key] = surf
         return surf
 
-    def draw(self, surface):
+    def draw(self, surface, mode="play"):
+        """Draw the buttons for this kind of scene, and remember which set is up."""
+        if mode != self.mode:
+            # Buttons that no longer exist cannot be let go of, so a jump held
+            # as the pause menu opens would stay held forever.
+            self._fingers.clear()
+            self.mode = mode
         if not self.active:
             return
-        for action, (cx, cy), radius, label in LAYOUT:
+        for action, (cx, cy), radius, label in LAYOUTS[mode]:
             face = self._face(action, radius, label, self.held(action))
             surface.blit(face, (cx - radius, cy - radius))

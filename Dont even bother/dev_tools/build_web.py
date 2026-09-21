@@ -31,7 +31,8 @@ DOWNLOAD_URL = os.environ.get(
 STAGE = os.path.join(ROOT, "build", f"deb-{VERSION}")
 
 # what the browser build actually needs
-KEEP_DIRS = [os.path.join("dev_tools", "solutions")]       # ghost racing reads these
+KEEP_DIRS = [os.path.join("dev_tools", "solutions"),      # ghost racing reads these
+             "sounds"]                                    # baked audio, so no numpy is needed
 SKIP_NAMES = {"build", "__pycache__", "tests", ".git"}
 SKIP_SUFFIX = (".pyc", ".md", ".txt")
 
@@ -201,7 +202,11 @@ def main():
         cmd.append("--build")
     cmd.append(STAGE)
     print(" ".join(cmd))
-    subprocess.run(cmd, check=False)
+    result = subprocess.run(cmd, check=False)
+    # A failed pygbag used to pass silently here and the next step died on a
+    # missing index.html, which says nothing about what actually went wrong.
+    if result.returncode != 0 and not args.serve:
+        raise SystemExit(f"pygbag failed ({result.returncode}) - see its output above")
 
     web_dir = os.path.join(STAGE, "build", "web")
     if os.path.isdir(web_dir):
