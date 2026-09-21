@@ -1,3 +1,9 @@
+# /// script
+# dependencies = ["numpy"]
+# ///
+# The block above is PEP 723 metadata. pygbag reads it and fetches a numpy
+# wheel when the game runs in a browser; every sound is synthesised with
+# numpy, so without it the web build is silent. Ignored when run normally.
 # I am adding comments for me to easily understand the codes
 # main.py - starts the game: sets up the window, loads everything, and runs
 # the main loop (read input -> update the current scene -> draw -> repeat).
@@ -8,6 +14,8 @@
 #                    --unlock-all      every level unlocked (for testing)
 
 import argparse
+import asyncio
+import time
 import json
 import os
 import sys
@@ -15,13 +23,83 @@ import tempfile
 
 import pygame
 
-from settings import VIRTUAL_W, VIRTUAL_H, FPS_CAP, GAME_TITLE, GAME_SUBTITLE
+from settings import LOW_FX, WEB_BENCH, VIRTUAL_W, VIRTUAL_H, FPS_CAP, GAME_TITLE, GAME_SUBTITLE
 from utils import SaveManager
 from controls import Controls
 from audio import AudioManager
 from graphics import make_vignette, make_grain_frames
 from campaign import LEVELS
+
+WEB = sys.platform == "emscripten"   # running inside a browser
 from scenes import SceneManager, SplashScene, GameScene, ActCardScene
+
+
+
+def bench_primitives(screen):
+    """Time the drawing primitives on the real display surface and print the
+    result. Costs that are negligible on a desktop GPU are not negligible in
+    WASM, and the only way to know the difference is to measure it here."""
+    import pygame as pg
+    from graphics import draw_text
+
+    W, H = screen.get_size()
+    opaque = pg.Surface((W, H)).convert()
+    opaque.fill((30, 40, 60))
+    alpha = pg.Surface((W, H), pg.SRCALPHA).convert_alpha()
+    alpha.fill((30, 40, 60, 120))
+    tile = pg.Surface((40, 40)).convert()
+    tile.fill((200, 80, 90))
+    tile_a = pg.Surface((40, 40), pg.SRCALPHA).convert_alpha()
+    tile_a.fill((200, 80, 90, 160))
+    font = pg.font.Font(None, 28)
+
+    out = []
+
+    def timed(label, fn, n):
+        fn()                                  # warm up, ignore the first
+        t0 = time.perf_counter()
+        for _ in range(n):
+            fn()
+        ms = (time.perf_counter() - t0) * 1000.0 / n
+        line = f"{label:<24}{ms:8.2f} ms"
+        print("BENCH " + line)
+        out.append(line)
+        return ms
+
+    print("BENCH ---- display:", screen.get_flags(), screen.get_bitsize(), "bpp", (W, H))
+    timed("fullscreen fill", lambda: screen.fill((10, 10, 14)), 20)
+    timed("fullscreen blit opaque", lambda: screen.blit(opaque, (0, 0)), 20)
+    timed("fullscreen blit alpha", lambda: screen.blit(alpha, (0, 0)), 20)
+    timed("100 small blits opaque", lambda: [screen.blit(tile, (i % 30 * 41, i // 30 * 41))
+                                             for i in range(100)], 20)
+    timed("100 small blits alpha", lambda: [screen.blit(tile_a, (i % 30 * 41, i // 30 * 41))
+                                            for i in range(100)], 20)
+    # candidate replacements for the full-screen alpha blit, which is the
+    # single most expensive thing we do in a browser
+    surf_alpha = pg.Surface((W, H)).convert()          # opaque, surface-level alpha
+    surf_alpha.fill((0, 0, 0))
+    surf_alpha.set_alpha(120)
+    timed("fullscreen set_alpha blit", lambda: screen.blit(surf_alpha, (0, 0)), 20)
+    timed("fullscreen fill MULT", lambda: screen.fill((120, 120, 120),
+                                                      special_flags=pg.BLEND_RGB_MULT), 20)
+    timed("fullscreen fill RGBA_MULT", lambda: screen.fill((120, 120, 120, 255),
+                                                           special_flags=pg.BLEND_RGBA_MULT), 20)
+    half = pg.Surface((W // 2, H), pg.SRCALPHA).convert_alpha()
+    half.fill((0, 0, 0, 120))
+    timed("half-screen blit alpha", lambda: screen.blit(half, (0, 0)), 20)
+    timed("font.render one line", lambda: font.render("hello world", True, (255, 255, 255)), 20)
+    timed("draw_text one line", lambda: draw_text(screen, "hello world", (100, 100), 20,
+                                                  (255, 255, 255)), 20)
+    timed("display.flip", lambda: pg.display.flip(), 20)
+    print("BENCH ---- end")
+    # pygbag sends print() to its own canvas terminal, which cannot be read
+    # back. Hand the numbers to JS as well so they can be inspected directly.
+    try:
+        import platform as _pf
+        _pf.window.DEB_BENCH = " | ".join(out)
+    except Exception:
+        pass
+    return out
 
 
 class Game:
@@ -39,9 +117,20 @@ class Game:
 
         self.controls = Controls()
         self.audio = AudioManager(self.save.settings)
-        self.vignette = make_vignette(VIRTUAL_W, VIRTUAL_H)
-        self.grain = make_grain_frames()
+        # a full-screen translucent blit every frame; too dear in a browser
+        self.vignette = None if LOW_FX else make_vignette(VIRTUAL_W, VIRTUAL_H)
+        # a full-screen translucent blit costs ~35ms in a browser, every
+        # frame, for an effect you can barely see. Not worth 3 fps.
+        self.grain = None if LOW_FX else make_grain_frames()
         self.grain_index = 0
+        # a frame-time readout, so "it lags" can become a number. F3 toggles it;
+        # it starts on in the browser, where it is the only way to see inside.
+        # F3 shows frame timings, and on the web which audio and save
+        # backends came up. Off by default: players should see the game,
+        # not the diagnostics that got the web build working.
+        self.show_perf = False
+        self.perf = {"update": 0.0, "draw": 0.0, "fps": 0.0}
+        self._perf_clock = 0.0
         self.demo = False
         self.markers = {}            # death markers per (difficulty, level), kept for the whole session
         self.session_deaths = 0
@@ -107,6 +196,21 @@ class Game:
         self.save.set_difficulty(difficulty)
         self.start_level(first_level)
 
+    def _draw_perf(self):
+        from graphics import draw_text
+        p = self.perf
+        text = f"{p['fps']:4.0f} fps   update {p['update']:5.2f} ms   draw {p['draw']:5.2f} ms"
+        draw_text(self.screen, text, (VIRTUAL_W // 2, 16), 20, (120, 255, 170), bold=True)
+        if WEB:
+            import audio as _audio
+            from utils import browser_store
+            where = "localStorage" if browser_store() is not None else "file (will not persist!)"
+            draw_text(self.screen, f"audio: {_audio.STATUS}", (VIRTUAL_W // 2, 38), 18,
+                      (120, 255, 170) if _audio.STATUS.startswith("ok") else (255, 120, 120))
+            draw_text(self.screen, f"save: {where}", (VIRTUAL_W // 2, 58), 18, (120, 255, 170))
+        for i, line in enumerate(getattr(self, "bench_lines", ())):
+            draw_text(self.screen, line, (VIRTUAL_W // 2, 40 + i * 20), 18, (255, 220, 120))
+
     def stop_demo(self):
         self.running = False
 
@@ -114,7 +218,10 @@ class Game:
         self.running = False
 
     # ------------------------------------------------------------ main loop
-    def run(self):
+    async def run(self):
+        if WEB_BENCH:
+            self.bench_lines = bench_primitives(self.screen)
+            self.bench_lines.insert(0, f"{self.screen.get_bitsize()}bpp flags={self.screen.get_flags()}")
         while self.running:
             dt = min(self.clock.tick(FPS_CAP) / 1000.0, 0.1)
             self.controls.begin_frame()
@@ -122,18 +229,35 @@ class Game:
             for event in events:
                 if event.type == pygame.QUIT:
                     self.running = False
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_F3:
+                    self.show_perf = not self.show_perf
+                    continue
                 elif event.type == pygame.KEYDOWN and (event.key == pygame.K_F11 or
                                                        (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT)):
                     self.toggle_fullscreen()
                     continue
                 self.controls.process_event(event)
 
+            t_update = time.perf_counter()
             self.scenes.update(dt, events)
+            t_draw = time.perf_counter()
             self.scenes.draw(self.screen)
+            t_done = time.perf_counter()
             if self.save.settings["film_grain"] and self.grain:
                 self.grain_index = (self.grain_index + 1) % (len(self.grain) * 2)
                 self.screen.blit(self.grain[self.grain_index // 2], (0, 0))
+            if self.show_perf:
+                self._perf_clock += dt
+                if self._perf_clock > 0.25:          # settle the numbers down
+                    self._perf_clock = 0.0
+                    self.perf = {"update": (t_draw - t_update) * 1000,
+                                 "draw": (t_done - t_draw) * 1000,
+                                 "fps": 1.0 / max(dt, 1e-6)}
+                self._draw_perf()
             pygame.display.flip()
+            # hand the frame back to the browser's event loop; on desktop this
+            # costs nothing measurable and keeps one code path for both
+            await asyncio.sleep(0)
 
             self.save_timer += dt
             if self.save_timer > 5.0:
@@ -144,7 +268,7 @@ class Game:
         pygame.quit()
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser(description=f"{GAME_TITLE} - {GAME_SUBTITLE}")
     parser.add_argument("--windowed", action="store_true", help="start in a window instead of fullscreen")
     parser.add_argument("--level", type=int, help="jump straight into a level (1-10)")
@@ -152,7 +276,10 @@ def main():
     parser.add_argument("--demo", action="store_true", help="watch the game play every level by itself")
     parser.add_argument("--brutal", action="store_true", help="with --demo: watch the Brutal runs")
     parser.add_argument("--from", dest="first", type=int, default=1, help="with --demo: start at this level")
-    args = parser.parse_args()
+    # a browser tab has no command line, and argparse would choke on its argv
+    args = parser.parse_args([]) if WEB else parser.parse_args()
+    if WEB:
+        args.windowed = True          # the canvas is the window
 
     if sys.platform == "win32":
         # Crisp rendering on high-DPI Windows displays
@@ -171,11 +298,12 @@ def main():
             os.remove(demo_save)
         game = Game(windowed=args.windowed, unlock_all=True, save_path=demo_save)
         game.start_demo("brutal" if args.brutal else "normal", max(1, min(args.first, len(LEVELS))))
-        game.run()
+        await game.run()
         return
     start = args.level if args.level and 1 <= args.level <= len(LEVELS) else None
-    Game(windowed=args.windowed, unlock_all=args.unlock_all or bool(start), start_level=start).run()
+    await Game(windowed=args.windowed, unlock_all=args.unlock_all or bool(start),
+               start_level=start).run()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

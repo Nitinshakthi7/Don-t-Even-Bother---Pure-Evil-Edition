@@ -13,9 +13,9 @@ from settings import (CURRENCY, VIRTUAL_W, VIRTUAL_H, FIXED_DT, MAX_STEPS_PER_FR
                       WHITE, BLOOD, DARK_BLOOD, EMBER, GOLD, TOXIC, PLAYER_BODY, PLAYER_SCARF,
                       TAUNTS_GENERAL, TAUNTS_BY_CAUSE, MILESTONES, RANK_COLOURS, MAX_DEATH_MARKERS, NIGHT,
                       SPOT_TAUNTS, MODE_TAUNTS, RETURN_LINES, DIFFICULTIES, ACTS,
-                      NAME_TAUNTS, NAME_TAUNT_CHANCE, MAX_NAME)
+                      NAME_TAUNTS, NAME_TAUNT_CHANCE, MAX_NAME, LOW_FX)
 from graphics import (draw_text, render_text, panel, dim, draw_skull, draw_lock, draw_clock, Background,
-                      glow_circle)
+                      glow_circle, fast)
 from particles import ParticleSystem, AmbientField
 from renderer import WorldRenderer
 from ui import Menu, MenuItem
@@ -195,7 +195,7 @@ def _ridge_surface(colour, rim, height=190, seed=3):
         pygame.draw.line(surf, rim, (x, y - h), (x + w, y + 3), 2)
         pygame.draw.line(surf, rim, (x, y - h), (x - w, y + 3), 1)
     pygame.draw.lines(surf, rim, False, crest, 2)
-    return surf
+    return fast(surf)
 
 
 def _far_ridge(colour, height=150, seed=8):
@@ -207,7 +207,7 @@ def _far_ridge(colour, height=150, seed=8):
         pts.append((x, y))
     pts.append((VIRTUAL_W, height))
     pygame.draw.polygon(surf, colour, pts)
-    return surf
+    return fast(surf)
 
 
 def _left_scrim(width=760, alpha=170):
@@ -216,7 +216,7 @@ def _left_scrim(width=760, alpha=170):
     for x in range(width):
         a = int(alpha * (1 - x / width) ** 1.6)
         surf.fill((6, 4, 10, a), (x, 0, 1, VIRTUAL_H))
-    return surf
+    return fast(surf)
 
 
 def draw_character_display(surface, skin, centre, scale, t, glow=True, bright=False):
@@ -247,6 +247,7 @@ class TitleScene(Scene):
         self.ridge = _ridge_surface((27, 18, 31), (86, 46, 56))
         self.far_ridge = _far_ridge((16, 11, 19))
         self.scrim = _left_scrim()
+        self._baked = None            # LOW_FX: the whole static backdrop, flattened
         self.cam = 0.0
         save = game.save
         has_progress = save.mode["unlocked"] > 1 or save.data["total_deaths"] > 0
@@ -385,14 +386,37 @@ class TitleScene(Scene):
             draw_text(surface, f"{save.spite} {CURRENCY}", (box.centerx, box.bottom + 60), 19,
                       GOLD, bold=True)
 
+    def _bake_backdrop(self, size):
+        """Flatten every static layer of the backdrop into one opaque image.
+
+        A full-screen translucent blit costs about 35ms in a browser against
+        0.6ms for an opaque one, and this screen used to stack four of them
+        every frame. None of them move, so they can all be painted once.
+        """
+        canvas = pygame.Surface(size)
+        self.bg.draw(canvas, self.cam)
+        dim(canvas, 70)
+        canvas.blit(self.far_ridge, (0, VIRTUAL_H - self.far_ridge.get_height() - 26))
+        canvas.blit(self.ridge, (0, VIRTUAL_H - self.ridge.get_height()))
+        canvas.blit(self.scrim, (0, 0))
+        return canvas.convert()
+
     def draw(self, surface):
-        self.bg.draw(surface, self.cam)
-        self.embers.draw(surface, self.cam, 0.5)
-        dim(surface, 70)
-        surface.blit(self.far_ridge, (0, VIRTUAL_H - self.far_ridge.get_height() - 26))
-        surface.blit(self.ridge, (0, VIRTUAL_H - self.ridge.get_height()))
-        surface.blit(self.scrim, (0, 0))
-        surface.blit(self.game.vignette, (0, 0))
+        if LOW_FX:
+            if self._baked is None:
+                self._baked = self._bake_backdrop(surface.get_size())
+            surface.blit(self._baked, (0, 0))
+            # the embers still move, so they go on top of the flattened layers
+            self.embers.draw(surface, self.cam, 0.5)
+        else:
+            self.bg.draw(surface, self.cam)
+            self.embers.draw(surface, self.cam, 0.5)
+            dim(surface, 70)
+            surface.blit(self.far_ridge, (0, VIRTUAL_H - self.far_ridge.get_height() - 26))
+            surface.blit(self.ridge, (0, VIRTUAL_H - self.ridge.get_height()))
+            surface.blit(self.scrim, (0, 0))
+            if self.game.vignette:
+                surface.blit(self.game.vignette, (0, 0))
         self.draw_title(surface, 168)
         if self.confirm:
             self.menu.draw(surface, alpha=90)
@@ -1253,7 +1277,8 @@ class CreditsScene(Scene):
             if text and -80 < y < VIRTUAL_H + 80:
                 draw_text(surface, text, (VIRTUAL_W // 2, y), size, colour, kind, anchor="midtop")
             y += size + 18
-        surface.blit(self.game.vignette, (0, 0))
+        if self.game.vignette:
+            surface.blit(self.game.vignette, (0, 0))
         draw_text(surface, "hold SPACE to speed up   |   ESC to leave", (VIRTUAL_W // 2, VIRTUAL_H - 26), 16, DIM)
 
 
@@ -1713,11 +1738,14 @@ class GameScene(Scene):
         self.particles.draw(c, cam[0], cam[1])
         self.renderer.draw_darkness(c, cam, (w.player.centerx, w.player.centery) if w.player.alive else
                                     (self.markers[-1] if self.markers else None))
-        if self.flash > 0:
-            shade = pygame.Surface((VIRTUAL_W, VIRTUAL_H), pygame.SRCALPHA)
-            shade.fill((*self.flash_colour, int(160 * self.flash)))
-            c.blit(shade, (0, 0))
-        c.blit(self.game.vignette, (0, 0))
+        # This used to allocate a fresh full-screen alpha surface every frame
+        # it was visible. dim() keeps a cache; on web we skip the flash, where
+        # one translucent full-screen blit costs more than the whole frame
+        # budget and death already reads clearly from the hitstop and debris.
+        if self.flash > 0 and not LOW_FX:
+            dim(c, int(160 * self.flash), self.flash_colour)
+        if self.game.vignette:
+            c.blit(self.game.vignette, (0, 0))
         self._draw_hud(c)
         self._draw_toasts(c)
         surface.blit(c, (0, 0))

@@ -14,6 +14,9 @@ except ImportError:          # the game still works without numpy, just silently
 
 RATE = 44100
 
+# what the audio system found at startup, shown on the web build's overlay
+STATUS = "audio not started"
+
 
 # ------------------------------------------------------------------ synth building blocks
 def _t(duration):
@@ -302,6 +305,7 @@ class AudioManager:
         self.music = {}
         self.current_track = None
         self.enabled = np is not None and pygame.mixer.get_init() is not None
+        self._report(f"numpy={np is not None} mixer={pygame.mixer.get_init()}")
         if not self.enabled:
             print("[audio] numpy or mixer unavailable - running without sound.")
             return
@@ -309,8 +313,24 @@ class AudioManager:
         pygame.mixer.set_reserved(1)
         self.music_channel = pygame.mixer.Channel(0)
         np.random.seed(7)
+        import time as _time
+        _t0 = _time.perf_counter()
         self.sounds = _build_sfx()
         self.music = {name: _to_sound(data, 0.8) for name, data in _build_music().items()}
+        self._report(f"ok: {len(self.sounds)} sfx + {len(self.music)} tracks "
+                     f"in {_time.perf_counter() - _t0:.1f}s")
+
+    @staticmethod
+    def _report(text):
+        """Say what the audio system found, where a browser can show it."""
+        global STATUS
+        STATUS = text
+        print(f"[audio] {text}")
+        try:
+            import platform as _pf
+            _pf.window.DEB_AUDIO = text
+        except Exception:
+            pass
 
     def _sfx_volume(self):
         return self.settings["master_volume"] * self.settings["sfx_volume"]

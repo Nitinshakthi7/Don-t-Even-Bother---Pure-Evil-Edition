@@ -11,6 +11,26 @@ from settings import (DEFAULT_SETTINGS, MAX_NAME, VIRTUAL_W, VIRTUAL_H, CAMERA_L
                       CAMERA_SMOOTH, RANKS)
 
 
+# ------------------------------------------------------------------ browser storage
+SAVE_KEY = "dont_even_bother_save_v4"
+
+
+def browser_store():
+    """The browser's localStorage, or None when we are not in a browser.
+
+    A packaged .exe writes a file and a browser cannot, so the save has to go
+    somewhere the page can reach. localStorage survives refreshes and tab
+    closes, which is the whole point.
+    """
+    if not settings.WEB:
+        return None
+    try:
+        import platform
+        return platform.window.localStorage
+    except Exception:
+        return None
+
+
 # ------------------------------------------------------------------ maths helpers
 def clamp(value, low, high):
     """Keep a value between low and high."""
@@ -131,15 +151,33 @@ class SaveManager:
         return data
 
     # -------------------------------------------------------------- disk
-    def load(self):
+    def _read_raw(self):
+        """The saved dictionary, from wherever this platform keeps it."""
+        store = browser_store()
+        if store is not None:
+            try:
+                text = store.getItem(SAVE_KEY)
+            except Exception as err:
+                print(f"[save] browser storage unreadable: {err}")
+                return None
+            if not text:
+                return None
+            try:
+                return json.loads(text)
+            except ValueError:
+                print("[save] browser save was corrupt, starting fresh.")
+                return None
         if not os.path.exists(self.path):
-            return
+            return None
         try:
             with open(self.path, "r", encoding="utf-8") as f:
-                raw = json.load(f)
+                return json.load(f)
         except (OSError, ValueError):
             print(f"[save] Could not read '{self.path}', starting fresh.")
-            return
+            return None
+
+    def load(self):
+        raw = self._read_raw()
         if not isinstance(raw, dict):
             return
         version = raw.get("version")
@@ -171,8 +209,21 @@ class SaveManager:
 
     def save(self):
         """Write to a temp file first, then swap it in, so a crash can't corrupt the save."""
+        store = browser_store()
+        if store is not None:
+            try:
+                store.setItem(SAVE_KEY, json.dumps(self.data))
+                self.dirty = False
+            except Exception as err:
+                print(f"[save] Could not write browser save: {err}")
+            return
         tmp_path = self.path + ".tmp"
         try:
+            # packaged as an .exe the save lives in AppData, which may not
+            # exist yet the first time someone runs the game
+            folder = os.path.dirname(self.path)
+            if folder:
+                os.makedirs(folder, exist_ok=True)
             with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(self.data, f, indent=2)
             os.replace(tmp_path, self.path)

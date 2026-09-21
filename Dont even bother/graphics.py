@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 import pygame
 
-from settings import (TILE, VIRTUAL_W, VIRTUAL_H, STEEL, STEEL_DARK, INK, PAPER, WHITE,
+from settings import (LOW_FX, TILE, VIRTUAL_W, VIRTUAL_H, STEEL, STEEL_DARK, INK, PAPER, WHITE,
                       BLOOD, GOLD)
 from utils import lerp_colour
 
@@ -89,7 +89,7 @@ def make_vignette(width, height, strength=170):
             d = math.hypot((x - cx) * 0.9, y - cy) / max_d
             a = int(strength * max(0.0, d - 0.45) / 0.55 * 1.2)
             small.set_at((x, y), (0, 0, 0, min(255, a)))
-    return pygame.transform.smoothscale(small, (width, height))
+    return fast(pygame.transform.smoothscale(small, (width, height)))
 
 
 def make_light_mask(radius, darkness=246):
@@ -133,17 +133,65 @@ def panel(surface, rect, fill=(18, 14, 26, 225), border=(255, 255, 255, 40), rad
     surface.blit(shape, rect.topleft)
 
 
+def fast(surface, alpha=True):
+    """Match the display's pixel format so blits don't convert every frame.
+
+    Software renderers (a browser, mainly) pay that conversion on every single
+    blit, which is where most of a frame goes if you let it.
+    """
+    try:
+        return surface.convert_alpha() if alpha else surface.convert()
+    except pygame.error:
+        return surface            # no display yet: fine, just slower
+
+
+_DIM_CACHE = {}
+
+
 def dim(surface, alpha=150, color=(0, 0, 0)):
-    shade = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    shade.fill((*color, alpha))
+    """A translucent wash over the whole surface.
+
+    The shade is cached per size, colour and alpha. It used to allocate and
+    fill a fresh 1280x720 surface on every call, several times a frame, which
+    is cheap on a desktop GPU and very expensive under a browser's software
+    renderer.
+    """
+    alpha = max(0, min(255, int(alpha)))
+    if alpha <= 0:
+        return
+    key = (surface.get_size(), color, alpha)
+    shade = _DIM_CACHE.get(key)
+    if shade is None:
+        if len(_DIM_CACHE) > 96:          # a scene fading in touches many alphas
+            _DIM_CACHE.clear()
+        shade = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        shade.fill((*color, alpha))
+        shade = fast(shade)
+        _DIM_CACHE[key] = shade
     surface.blit(shade, (0, 0))
 
 
+_GLOW_CACHE = {}
+
+
 def glow_circle(radius, color, intensity=120):
-    surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-    for r in range(radius, 0, -2):
-        a = int(intensity * (1 - r / radius) ** 1.6)
-        pygame.draw.circle(surf, (*color, a), (radius, radius), r)
+    """A soft radial glow.
+
+    Built from radius/2 stacked circles, so it is far too expensive to make
+    fresh every frame - and it used to be, several times a frame. Cached on
+    the arguments instead; pulsing callers round to a handful of entries.
+    """
+    key = (radius, color, int(intensity))
+    surf = _GLOW_CACHE.get(key)
+    if surf is None:
+        if len(_GLOW_CACHE) > 160:
+            _GLOW_CACHE.clear()
+        surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        for r in range(radius, 0, -2):
+            a = int(intensity * (1 - r / radius) ** 1.6)
+            pygame.draw.circle(surf, (*color, a), (radius, radius), r)
+        surf = fast(surf)
+        _GLOW_CACHE[key] = surf
     return surf
 
 
@@ -329,8 +377,11 @@ class Background:
         moon = glow_circle(170, lerp_colour(theme["sky_bottom"], WHITE, 0.5), 90)
         self.sky.blit(moon, (VIRTUAL_W * 0.72 - 170, 120 - 170))
         pygame.draw.circle(self.sky, lerp_colour(theme["sky_bottom"], WHITE, 0.55), (int(VIRTUAL_W * 0.72), 120), 46)
+        self.sky = fast(self.sky, alpha=False)
         self.far = self._hills(theme["far"], base=VIRTUAL_H * 0.55, amp=110, rng=rng, jagged=True)
         self.near = self._hills(theme["near"], base=VIRTUAL_H * 0.7, amp=70, rng=rng, jagged=False)
+        self._tall = None          # baked on first use when LOW_FX is on
+        self._max_sink = 0         # how much headroom that bake has above the sky
 
     @staticmethod
     def _hills(color, base, amp, rng, jagged):
@@ -348,10 +399,42 @@ class Background:
             pts.append((x, y))
         pts.append((w, h))
         pygame.draw.polygon(surf, color, pts)
-        return surf
+        return fast(surf)
+
+    def _bake_tall(self, max_sink):
+        """Sky and both hill layers flattened into one opaque image, with
+        max_sink pixels of spare sky above them.
+
+        The headroom is what lets climbing stay cheap: sinking the hills
+        becomes a matter of sliding the source window down this image, so it
+        is still a single opaque blit no matter how high you are.
+        """
+        tall = pygame.Surface((VIRTUAL_W, VIRTUAL_H + max_sink))
+        if max_sink:
+            tall.fill(self.sky.get_at((0, 0)), (0, 0, VIRTUAL_W, max_sink))
+        tall.blit(self.sky, (0, max_sink))
+        tall.blit(self.far, (0, max_sink))
+        tall.blit(self.near, (0, max_sink))
+        self._max_sink = max_sink
+        return fast(tall, alpha=False)
 
     def draw(self, surface, cam_x, sink=0):
         """sink pushes the hills down (used while climbing tall levels)."""
+        if LOW_FX:
+            # Every layer here is translucent, and a full-screen translucent
+            # blit costs ~35ms in a browser against ~0.6ms for an opaque one.
+            # Climbing used to fall through to four of them, which is why the
+            # frame rate tracked how high up the level you were.
+            need = min(int(sink), VIRTUAL_H)
+            if self._tall is None or need > self._max_sink:
+                self._tall = self._bake_tall(min(VIRTUAL_H, ((need + 127) // 128) * 128))
+            top = self._max_sink - need
+            # one screenful of opaque pixels, wrapped, so the hills still drift
+            off = int(cam_x * 0.25) % VIRTUAL_W
+            surface.blit(self._tall, (0, 0), (off, top, VIRTUAL_W - off, VIRTUAL_H))
+            if off:
+                surface.blit(self._tall, (VIRTUAL_W - off, 0), (0, top, off, VIRTUAL_H))
+            return
         surface.blit(self.sky, (0, 0))
         for layer, factor, depth in ((self.far, 0.15, 0.6), (self.near, 0.35, 1.0)):
             off = int(cam_x * factor) % VIRTUAL_W

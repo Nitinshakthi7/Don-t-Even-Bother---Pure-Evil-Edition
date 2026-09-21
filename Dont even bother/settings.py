@@ -3,6 +3,7 @@
 # so the game can be balanced without digging through the other files.
 
 import os
+import sys as _sys
 
 # ---------------------------------------------------------------- identity
 GAME_TITLE = "DON'T EVEN BOTHER"
@@ -12,8 +13,18 @@ DEVELOPER_NAME = "Nitin M"           # shown in the credits
 VERSION = "2.0.0"
 
 # ---------------------------------------------------------------- paths
-BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-SAVE_FILE = os.path.join(BASE_PATH, "rage_save.json")
+# Packed into a single .exe, the code runs from a temporary folder that is
+# deleted on exit. Bundled read-only data lives there quite happily; a save
+# file does not, so that goes to the user's own AppData instead. Run from
+# source, both stay where they always were.
+if getattr(_sys, "frozen", False):
+    BASE_PATH = getattr(_sys, "_MEIPASS", os.path.dirname(os.path.abspath(_sys.executable)))
+    SAVE_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
+                            "DontEvenBother")
+else:
+    BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+    SAVE_DIR = BASE_PATH
+SAVE_FILE = os.path.join(SAVE_DIR, "rage_save.json")
 
 # ---------------------------------------------------------------- display
 # The whole game is drawn on a fixed 1280x720 canvas. pygame.SCALED then
@@ -110,6 +121,25 @@ PAYOUT = {
 FEW_DEATHS = 3
 DEATH_PAYOUT_CAP = 30       # so farming deaths is never worth it
 BRUTAL_PAYOUT = 2.0         # Brutal pays double, because Brutal costs double
+
+# ---------------------------------------------------------------- heavy effects
+# A browser draws every pixel on the CPU, and this game's look is built from
+# stacked full-screen translucent layers: sky, two parallax hills drawn twice
+# each for wrapping, a dim wash and a vignette. That is ~8 million pixels of
+# alpha blending a frame, which a GPU shrugs off and a software renderer does
+# not. LOW_FX bakes the background into one opaque image and drops the
+# vignette, trading parallax motion for a playable frame rate.
+WEB = _sys.platform == "emscripten"   # running inside a browser
+LOW_FX = WEB
+
+# Temporary: time the drawing primitives once on startup and print the
+# results to the browser console. Guessing at what is slow in WASM has
+# been wrong twice; this measures it. Set False once the numbers are in.
+# Flip to LOW_FX to re-measure: it prints the cost of each drawing
+# primitive and shows them on screen. The finding that shaped the web
+# build: a full-screen translucent blit costs ~35ms here against ~0.6ms
+# for an opaque one, so we bake static layers instead of stacking washes.
+WEB_BENCH = False
 
 # ---------------------------------------------------------------- game feel
 RESPAWN_DELAY = 0.8

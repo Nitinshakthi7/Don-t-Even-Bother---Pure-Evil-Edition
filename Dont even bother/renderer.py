@@ -10,8 +10,8 @@ import math
 
 import pygame
 
-from settings import TILE, VIRTUAL_W, VIRTUAL_H, THEMES, BLOOD
-from graphics import TileArt, Background, make_light_mask
+from settings import TILE, VIRTUAL_W, VIRTUAL_H, THEMES, BLOOD, LOW_FX
+from graphics import TileArt, Background, make_light_mask, fast
 from particles import AmbientField
 from traps import CrumbleBlock
 
@@ -50,13 +50,30 @@ class PagedLayer:
         self.painter = painter            # fills a fresh page (for baked tiles)
         self.pages = {}
 
+    # A tile page is ~95% empty and has no partially transparent pixels, so on
+    # the web it is stored with a colour key instead of per-pixel alpha: SDL
+    # then runs the blit RLE-encoded and skips the empty runs outright, rather
+    # than blending a screenful of mostly-nothing every frame.
+    KEY = (255, 0, 255)
+
+    def _pack(self, surf):
+        packed = pygame.Surface((PAGE, PAGE))
+        packed.fill(self.KEY)
+        packed.blit(surf, (0, 0))
+        packed = fast(packed, alpha=False)
+        packed.set_colorkey(self.KEY, pygame.RLEACCEL)
+        return packed
+
     def page(self, px, py, create=True):
         key = (px, py)
         surf = self.pages.get(key)
         if surf is None and create:
-            surf = pygame.Surface((PAGE, PAGE), pygame.SRCALPHA)
+            surf = fast(pygame.Surface((PAGE, PAGE), pygame.SRCALPHA))
             if self.painter:
                 self.painter(surf, px * PAGE, py * PAGE)
+                # only the baked tile pages qualify; stains are soft-edged
+                if LOW_FX:
+                    surf = self._pack(surf)
             self.pages[key] = surf
         return surf
 
@@ -84,6 +101,8 @@ class WorldRenderer:
         self.stains = PagedLayer(world.width, world.height)
         self.light_mask = make_light_mask(190)
         self.darkness = pygame.Surface((VIRTUAL_W, VIRTUAL_H), pygame.SRCALPHA)
+        self._lit_patch = None        # LOW_FX: the lit square, cached per fade step
+        self._lit_key = None
         self.dark_amount = 1.0 if world.dark else 0.0
 
     def _paint_static(self, surf, ox, oy):
@@ -220,8 +239,56 @@ class WorldRenderer:
                 pygame.draw.line(surface, col, (sx - size, sy - size), (sx + size, sy + size), 3)
                 pygame.draw.line(surface, col, (sx - size, sy + size), (sx + size, sy - size), 3)
 
+    @staticmethod
+    def _outside(box, area):
+        """The parts of `area` that `box` does not cover, as up to four rects."""
+        box = box.clip(area)
+        if not box.width or not box.height:
+            return [area]
+        out = []
+        if box.top > area.top:
+            out.append(pygame.Rect(area.left, area.top, area.width, box.top - area.top))
+        if box.bottom < area.bottom:
+            out.append(pygame.Rect(area.left, box.bottom, area.width, area.bottom - box.bottom))
+        if box.left > area.left:
+            out.append(pygame.Rect(area.left, box.top, box.left - area.left, box.height))
+        if box.right < area.right:
+            out.append(pygame.Rect(box.right, box.top, area.right - box.right, box.height))
+        return out
+
+    def _draw_darkness_cheap(self, surface, cam, focus):
+        """Lights-out without washing the whole screen in one translucent blit.
+
+        That wash is 96% opaque anyway, so everywhere the lamp does not reach
+        can simply be filled solid; only the lit square pays for blending, and
+        it is a sixth of the screen.
+        """
+        area = surface.get_rect()
+        if focus is None:
+            surface.fill((0, 0, 0))
+            return
+        size = self.light_mask.get_width()
+        r = size // 2
+        box = pygame.Rect(int(focus[0] - cam[0]) - r, int(focus[1] - cam[1]) - r, size, size)
+        for rect in self._outside(box, area):
+            surface.fill((0, 0, 0), rect)
+        if not box.colliderect(area):
+            return
+        key = int(self.dark_amount * 32)          # the fade only has so many steps
+        if self._lit_key != key:
+            patch = self._lit_patch
+            if patch is None:
+                patch = self._lit_patch = pygame.Surface((size, size), pygame.SRCALPHA)
+            patch.fill((0, 0, 0, int(246 * self.dark_amount)))
+            patch.blit(self.light_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+            self._lit_key = key
+        surface.blit(self._lit_patch, box.topleft)
+
     def draw_darkness(self, surface, cam, focus):
         if self.dark_amount < 0.01:
+            return
+        if LOW_FX:
+            self._draw_darkness_cheap(surface, cam, focus)
             return
         self.darkness.fill((0, 0, 0, int(246 * self.dark_amount)))
         if focus is not None:
