@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import shutil
+import zipfile
 import socket
 import subprocess
 import sys
@@ -117,6 +118,25 @@ def assemble_site(web_dir):
     return site
 
 
+def make_itch_zip(web_dir):
+    """Zip the game for itch.io.
+
+    itch unpacks the zip and serves whatever index.html sits at its root, so
+    the game files go in flat rather than inside a folder. vercel.json is left
+    out - it means nothing here and would just be a stray file in the upload.
+    """
+    out = os.path.join(ROOT, "build", f"itch-dont-even-bother-{VERSION}.zip")
+    if os.path.exists(out):
+        os.remove(out)
+    skip = {"vercel.json"}
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as bundle:
+        for name in sorted(os.listdir(web_dir)):
+            if name in skip:
+                continue
+            bundle.write(os.path.join(web_dir, name), name)
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build the browser version.")
     parser.add_argument("--serve", action="store_true", help="serve it on localhost:8000 afterwards")
@@ -155,6 +175,14 @@ def main():
         print(f"site assembled ({size / 1024:.0f} KB): landing page at /, game at /play/")
         print(f"  {site}")
         print(f'  npx vercel deploy --prod "{site}"')
+
+        itch = make_itch_zip(web_dir)
+        with zipfile.ZipFile(itch) as check:
+            names = check.namelist()
+        print()
+        print(f"itch.io upload ({os.path.getsize(itch) / 1024:.0f} KB, "
+              f"{len(names)} files, index.html at the root):")
+        print(f"  {itch}")
 
 
 if __name__ == "__main__":
