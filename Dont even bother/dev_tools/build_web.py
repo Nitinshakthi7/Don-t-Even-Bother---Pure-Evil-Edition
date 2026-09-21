@@ -13,6 +13,8 @@ import json
 import os
 import shutil
 import zipfile
+
+Q = chr(34)
 import socket
 import subprocess
 import sys
@@ -137,6 +139,42 @@ def make_itch_zip(web_dir):
     return out
 
 
+def stretch_canvas(web_dir):
+    """Make the game fill the window instead of sitting in a box.
+
+    pygbag sizes the canvas to the framebuffer (1280x720) and centres it, so
+    on a screen bigger than that - itch fullscreen, most desktops - you get
+    the game marooned in the middle of a black page. Scaling it with CSS and
+    object-fit: contain fills the space and keeps the 16:9 shape, so it
+    letterboxes rather than stretching.
+
+    !important because pygbag sets inline sizes on the canvas at runtime.
+    """
+    page = os.path.join(web_dir, "index.html")
+    html = open(page, encoding="utf-8").read()
+    rules = [
+        '<style id=' + Q + 'fill-the-window' + Q + '>',
+        '  html, body { height: 100%; margin: 0; background: #0e0b14; overflow: hidden; }',
+        '  canvas.emscripten, canvas#canvas, canvas#canvas3d {',
+        '    width: 100% !important; height: 100% !important;',
+        '    max-width: 100% !important; max-height: 100% !important;',
+        '    object-fit: contain !important;',
+        '    position: absolute !important; inset: 0 !important; margin: auto !important;',
+        '  }',
+        '</style>',
+        '</head>',
+    ]
+    css = chr(10).join(rules)
+    if "fill-the-window" in html:
+        return page
+    if "</head>" not in html:
+        raise SystemExit("index.html has no </head> - cannot inject the canvas CSS")
+    html = html.replace("</head>", css, 1)
+    with open(page, "w", encoding="utf-8") as fh:
+        fh.write(html)
+    return page
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build the browser version.")
     parser.add_argument("--serve", action="store_true", help="serve it on localhost:8000 afterwards")
@@ -167,6 +205,7 @@ def main():
 
     web_dir = os.path.join(STAGE, "build", "web")
     if os.path.isdir(web_dir):
+        stretch_canvas(web_dir)
         write_host_config(web_dir)
         site = assemble_site(web_dir)
         size = sum(os.path.getsize(os.path.join(r, f))
