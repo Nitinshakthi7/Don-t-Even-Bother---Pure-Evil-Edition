@@ -101,17 +101,30 @@ def cover(game):
     glow = glow_circle(460, (215, 35, 58), 165)
     canvas.blit(glow, (W // 2 - 460, 700 - 460))
 
-    def fit(text, y, size, colour, max_w, shadow=None):
-        """Shrink until it fits the frame - never let the title touch the edge."""
-        while size > 10 and render_text(text, size, colour, "display", True).get_width() > max_w:
-            size -= 2
-        if shadow:
-            draw_text(canvas, text, (W // 2 + 5, y + 6), size, shadow, "display", bold=True)
-        draw_text(canvas, text, (W // 2, y), size, colour, "display", bold=True)
+    def tracked(text, y, size, colour, max_w, track, shadow=None):
+        """Draw a title letter by letter, with space between the letters.
 
-    fit("DON'T EVEN", 200, 150, PAPER, W - 120, shadow=(0, 0, 0))
-    fit("BOTHER", 350, 165, BLOOD, W - 120, shadow=DARK_BLOOD)
-    draw_text(canvas, "P U R E   E V I L   E D I T I O N", (W // 2, 470), 44, GOLD, "display", bold=True)
+        The display face is Impact, which is already condensed and black.
+        Asking pygame for bold on top of that synthesises extra weight by
+        smearing each glyph sideways, which closes up the counters until
+        DON'T reads as DOITT. So: no synthetic bold, and real tracking.
+        """
+        while size > 12:
+            glyphs = [render_text(c, size, colour, "display") for c in text]
+            width = sum(g.get_width() for g in glyphs) + track * (len(text) - 1)
+            if width <= max_w:
+                break
+            size -= 2
+        x = (W - width) // 2
+        for c, g in zip(text, glyphs):
+            if shadow:
+                canvas.blit(render_text(c, size, shadow, "display"), (x + 5, y + 6))
+            canvas.blit(g, (x, y))
+            x += g.get_width() + track
+
+    tracked("DON'T EVEN", 130, 150, PAPER, W - 140, 14, shadow=(0, 0, 0))
+    tracked("BOTHER", 290, 168, BLOOD, W - 140, 18, shadow=DARK_BLOOD)
+    tracked("PURE EVIL EDITION", 470, 46, GOLD, W - 260, 12)
 
     # spikes along the floor: says "platformer that kills you" without a word.
     # They have to survive being shrunk to a thumbnail, so they are big.
