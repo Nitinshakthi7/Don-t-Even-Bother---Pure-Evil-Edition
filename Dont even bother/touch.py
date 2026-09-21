@@ -1,40 +1,112 @@
 # I am adding comments for me to easily understand the codes
 # touch.py - on-screen buttons for phones and tablets.
 #
-# The pads stay hidden until something actually touches the screen, so a
-# desktop player never sees them and a phone player never has to find a
-# setting. Everything reports through Controls like any other device.
+# The pad stays hidden until something actually touches the screen, so a
+# desktop player never sees it and a phone player never has to find a setting.
+# Everything reports through Controls like any other device.
 #
 # Multi-touch matters here: you cannot play a platformer if holding "right"
-# stops you pressing "jump". SDL finger events carry an id per finger, so
-# each one is tracked separately - mouse events alone would only ever give
-# us one contact point.
+# stops you pressing "jump". SDL finger events carry an id per finger, so each
+# one is tracked separately - mouse events alone only ever give one contact.
+#
+# Two things drive the look:
+#   - every icon is drawn with shapes, never font glyphs. The display face is
+#     Impact, which has no arrow characters, so the old labels were rendering
+#     as identical blank boxes.
+#   - the faces are colour-keyed rather than translucent. A translucent blit
+#     costs ~35ms a screenful in a browser, and five of them per frame was a
+#     real share of a phone's budget; a colour key blits RLE-encoded and skips
+#     everything outside the button.
 
 import math
 
 import pygame
 
-from settings import VIRTUAL_W, VIRTUAL_H
+from settings import VIRTUAL_W, VIRTUAL_H, PAPER, BLOOD, GOLD, INK, MUTED
 
-# action, centre, radius, label
+KEY = (255, 0, 255)          # never appears in the art
+FACE = (20, 15, 28)          # button body, matches the game's panels
+FACE_LIT = (58, 20, 34)      # pressed
+
+# action, centre, radius, kind
+# Thumbs sit in the bottom corners, so the pad lives there, and the rarely
+# used buttons go up top out of the way.
 PLAY_LAYOUT = (
-    ("left",    (130, VIRTUAL_H - 120), 78, "◀"),
-    ("right",   (310, VIRTUAL_H - 120), 78, "▶"),
-    ("jump",    (VIRTUAL_W - 150, VIRTUAL_H - 130), 92, "JUMP"),
-    ("restart", (VIRTUAL_W - 58, 148), 40, "↻"),
-    ("pause",   (VIRTUAL_W - 58, 58), 40, "II"),
+    ("left",    (150, VIRTUAL_H - 130), 92, "left"),
+    ("right",   (350, VIRTUAL_H - 130), 92, "right"),
+    ("jump",    (VIRTUAL_W - 160, VIRTUAL_H - 140), 108, "jump"),
+    # Top-left, beside the death counter. The right of the HUD is taken by the
+    # timer and by achievement toasts, and the bottom corners are where thumbs
+    # rest - a stray restart in this game would be unforgivable.
+    ("pause",   (268, 56), 46, "pause"),
+    ("restart", (378, 56), 46, "restart"),
 )
 
-# Menus are mostly tapped directly, but every one of them expects an ESC to
-# back out of, and a phone has no ESC.
+# Menus are tapped directly, but every one of them expects an ESC to back out
+# of, and a phone has no ESC.
 MENU_LAYOUT = (
-    ("back", (92, VIRTUAL_H - 66), 54, "BACK"),
+    # clear of the menu list above and the footer text below
+    ("back", (126, VIRTUAL_H - 112), 72, "back"),
 )
 
 LAYOUTS = {"play": PLAY_LAYOUT, "menu": MENU_LAYOUT}
 
 # "up" is the same button as jump for anything that reads a direction
 ALIASES = {"jump": ("up",)}
+
+
+# ---------------------------------------------------------------- icon art
+def _triangle(surf, centre, size, colour, pointing):
+    cx, cy = centre
+    h = size
+    if pointing == "left":
+        pts = [(cx - h * 0.62, cy), (cx + h * 0.42, cy - h * 0.72), (cx + h * 0.42, cy + h * 0.72)]
+    elif pointing == "right":
+        pts = [(cx + h * 0.62, cy), (cx - h * 0.42, cy - h * 0.72), (cx - h * 0.42, cy + h * 0.72)]
+    else:                                              # up
+        pts = [(cx, cy - h * 0.66), (cx - h * 0.74, cy + h * 0.40), (cx + h * 0.74, cy + h * 0.40)]
+    pygame.draw.polygon(surf, colour, pts)
+    pygame.draw.polygon(surf, INK, pts, 3)
+
+
+def _pause_icon(surf, centre, size, colour):
+    cx, cy = centre
+    w, h = max(4, int(size * 0.30)), int(size * 1.6)
+    for dx in (-1, 1):
+        bar = pygame.Rect(0, 0, w, h)
+        bar.center = (cx + dx * w, cy)
+        pygame.draw.rect(surf, colour, bar, border_radius=2)
+
+
+def _restart_icon(surf, centre, size, colour):
+    """A circular arrow, drawn rather than typed - Impact has no such glyph.
+
+    pygame.draw.arc is thin and ragged at small sizes, so the ring is built
+    from short segments instead, which stays even and reads cleanly.
+    """
+    cx, cy = centre
+    r = size * 0.92
+    thick = max(3, int(size * 0.30))
+    start, end = 55, 340                      # degrees, leaving a gap for the head
+    step = 6
+    prev = None
+    for deg in range(start, end + 1, step):
+        a = math.radians(deg)
+        point = (cx + r * math.cos(a), cy - r * math.sin(a))
+        if prev is not None:
+            pygame.draw.line(surf, colour, prev, point, thick)
+        prev = point
+    # arrowhead at the open end, pointing the way the ring turns
+    a = math.radians(start)
+    tip = (cx + r * math.cos(a), cy - r * math.sin(a))
+    head = size * 0.62
+    along = (math.cos(a - math.pi / 2), -math.sin(a - math.pi / 2))
+    out = (math.cos(a), -math.sin(a))
+    pygame.draw.polygon(surf, colour, [
+        (tip[0] + along[0] * head, tip[1] + along[1] * head),
+        (tip[0] + out[0] * head * 0.62, tip[1] + out[1] * head * 0.62),
+        (tip[0] - out[0] * head * 0.62, tip[1] - out[1] * head * 0.62),
+    ])
 
 
 class TouchControls:
@@ -69,12 +141,18 @@ class TouchControls:
 
     @staticmethod
     def _hit(x, y, mode):
-        """Which button, if any, is under this point."""
-        for action, (cx, cy), radius, _label in LAYOUTS[mode]:
-            # a little forgiveness: fingers are fatter than a mouse pointer
-            if math.hypot(x - cx, y - cy) <= radius * 1.25:
-                return action
-        return None
+        """Which button, if any, is under this point.
+
+        Generous on purpose, and nearest wins: a thumb is a wide, imprecise
+        thing, and missing a jump because you were ten pixels low is the worst
+        possible way to die in this game.
+        """
+        best, best_d = None, None
+        for action, (cx, cy), radius, _kind in LAYOUTS[mode]:
+            d = math.hypot(x - cx, y - cy)
+            if d <= radius * 1.45 and (best_d is None or d < best_d):
+                best, best_d = action, d
+        return best
 
     # ------------------------------------------------------------ per frame
     def begin_frame(self):
@@ -137,25 +215,60 @@ class TouchControls:
         return action in holding
 
     # ------------------------------------------------------------ drawing
-    def _face(self, action, radius, label, lit):
+    def _face(self, kind, radius, lit):
         """The button art, built once and reused.
 
-        Translucent blits are the expensive thing in a browser, so these are
-        baked rather than redrawn, and they are small enough to be cheap.
+        Colour-keyed rather than translucent: SDL blits these RLE-encoded and
+        skips every pixel outside the button, which matters when five of them
+        go over the top of the game on a phone every frame.
         """
-        key = (action, lit)
+        key = (kind, radius, lit)
         surf = self._faces.get(key)
         if surf is not None:
             return surf
+
         from graphics import draw_text
-        size = radius * 2
-        surf = pygame.Surface((size, size), pygame.SRCALPHA)
-        fill = (255, 255, 255, 70) if lit else (255, 255, 255, 34)
-        edge = (255, 255, 255, 200) if lit else (255, 255, 255, 110)
-        pygame.draw.circle(surf, fill, (radius, radius), radius)
-        pygame.draw.circle(surf, edge, (radius, radius), radius, 3)
-        draw_text(surf, label, (radius, radius), 30 if len(label) > 2 else 40,
-                  (255, 255, 255), bold=True)
+        size = radius * 2 + 12
+        surf = pygame.Surface((size, size))
+        surf.fill(KEY)
+        mid = size // 2
+        body = FACE_LIT if lit else FACE
+        ring = GOLD if lit else PAPER
+
+        if kind in ("left", "right"):
+            # a chunky rounded square, like the level's blocks
+            box = pygame.Rect(0, 0, radius * 2, radius * 2)
+            box.center = (mid, mid)
+            pygame.draw.rect(surf, body, box, border_radius=22)
+            pygame.draw.rect(surf, ring, box, 5, border_radius=22)
+            _triangle(surf, (mid, mid), radius * 0.52, ring, kind)
+        elif kind == "jump":
+            pygame.draw.circle(surf, body, (mid, mid), radius)
+            pygame.draw.circle(surf, GOLD if lit else BLOOD, (mid, mid), radius, 6)
+            _triangle(surf, (mid, int(mid - radius * 0.20)), radius * 0.42, ring, "up")
+            draw_text(surf, "JUMP", (mid, int(mid + radius * 0.50)), 30, ring, "display")
+        elif kind == "back":
+            box = pygame.Rect(0, 0, radius * 2, int(radius * 1.15))
+            box.center = (mid, mid)
+            pygame.draw.rect(surf, body, box, border_radius=16)
+            pygame.draw.rect(surf, ring, box, 5, border_radius=16)
+            _triangle(surf, (int(mid - radius * 0.56), mid), radius * 0.28, ring, "left")
+            draw_text(surf, "BACK", (int(mid + radius * 0.20), mid), 30, ring, "display")
+        else:
+            box = pygame.Rect(0, 0, radius * 2, radius * 2)
+            box.center = (mid, mid)
+            pygame.draw.rect(surf, body, box, border_radius=16)
+            pygame.draw.rect(surf, ring if lit else MUTED, box, 4, border_radius=16)
+            if kind == "pause":
+                _pause_icon(surf, (mid, mid), radius * 0.42, ring)
+            else:
+                _restart_icon(surf, (mid, mid), radius * 0.46, ring)
+
+        try:
+            surf = surf.convert()
+        except pygame.error:
+            pass
+        surf.set_colorkey(KEY, pygame.RLEACCEL)
         self._faces[key] = surf
         return surf
 
@@ -168,6 +281,6 @@ class TouchControls:
             self.mode = mode
         if not self.active:
             return
-        for action, (cx, cy), radius, label in LAYOUTS[mode]:
-            face = self._face(action, radius, label, self.held(action))
-            surface.blit(face, (cx - radius, cy - radius))
+        for action, (cx, cy), radius, kind in LAYOUTS[mode]:
+            face = self._face(kind, radius, self.held(action))
+            surface.blit(face, (cx - face.get_width() // 2, cy - face.get_height() // 2))

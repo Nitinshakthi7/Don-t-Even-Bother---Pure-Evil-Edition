@@ -101,6 +101,18 @@ def bench_primitives(screen):
     return out
 
 
+
+def _perf_requested():
+    """True when the page was opened with ?perf - the only way in on a phone."""
+    if not WEB:
+        return False
+    try:
+        import platform as _pf
+        return "perf" in str(_pf.window.location.search).lower()
+    except Exception:
+        return False
+
+
 class Game:
     def __init__(self, windowed=False, unlock_all=False, start_level=None, save_path=None):
         self.levels = LEVELS
@@ -125,9 +137,10 @@ class Game:
         # a frame-time readout, so "it lags" can become a number. F3 toggles it;
         # it starts on in the browser, where it is the only way to see inside.
         # F3 shows frame timings, and on the web which audio and save
-        # backends came up. Off by default: players should see the game,
-        # not the diagnostics that got the web build working.
-        self.show_perf = False
+        # backends came up. Off by default: players should see the game, not
+        # the diagnostics. A phone has no F3, so adding ?perf to the address
+        # turns it on there.
+        self.show_perf = _perf_requested()
         self.perf = {"update": 0.0, "draw": 0.0, "fps": 0.0}
         self._perf_clock = 0.0
         self.demo = False

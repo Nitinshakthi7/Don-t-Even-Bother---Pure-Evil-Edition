@@ -130,6 +130,19 @@ BRUTAL_PAYOUT = 2.0         # Brutal pays double, because Brutal costs double
 # not. LOW_FX bakes the background into one opaque image and drops the
 # vignette, trading parallax motion for a playable frame rate.
 WEB = _sys.platform == "emscripten"   # running inside a browser
+
+# A phone is a much smaller CPU than a laptop, and the effects that make
+# the game feel alive - drifting embers, clouds of debris - are per-particle
+# Python work every frame. None of them change how the game plays, so they
+# get cut right down there rather than costing frames.
+MOBILE = False
+if WEB:
+    try:
+        import platform as _pf
+        _ua = str(_pf.window.navigator.userAgent).lower()
+        MOBILE = any(k in _ua for k in ("android", "iphone", "ipad", "ipod", "mobile"))
+    except Exception:
+        MOBILE = False
 LOW_FX = WEB
 
 # Temporary: time the drawing primitives once on startup and print the

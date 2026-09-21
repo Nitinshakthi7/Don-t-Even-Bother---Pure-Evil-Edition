@@ -6,6 +6,8 @@
 import math
 import random
 
+from settings import MOBILE
+
 import pygame
 
 
@@ -31,6 +33,8 @@ class ParticleSystem:
     """Owns every particle. Uses plain draw calls (no per-particle surfaces) so it stays fast."""
 
     def __init__(self, limit=1500):
+        if MOBILE:
+            limit = 220          # a phone cannot afford a thousand of anything
         self.particles = []
         self.limit = limit
 
@@ -116,6 +120,8 @@ class AmbientField:
     """Slow floating motes (embers, fireflies, ash) that make each world feel alive."""
 
     def __init__(self, width, height, color, count=40, rising=True, seed=3):
+        if MOBILE:
+            count = max(5, count // 6)
         rng = random.Random(seed)
         self.width, self.height = width, height
         self.color = color
