@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<defs><clipPath id="c"><rect width="64" height="64" rx="14"/></clipPath><clipPath id="b"><rect x="18" y="19" width="28" height="37" rx="7.5"/></clipPath>
+<linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d1233"/><stop offset=".55" stop-color="#4a2447"/><stop offset="1" stop-color="#d9744a"/></linearGradient></defs>
+<g clip-path="url(#c)">
+<rect width="64" height="56" fill="url(#s)"/>
+<circle cx="49" cy="13" r="6.2" fill="#ecc0b8"/>
+<rect y="56" width="64" height="8" fill="#2b1530"/><rect y="56" width="64" height="1.8" fill="#ff8a3d"/>
+<path d="M3.5 56 9.25 44 15 56Z" fill="#cfccd9"/><path d="M9.25 44 15 56H9.25Z" fill="#8f8ca0"/><circle cx="9.25" cy="46.2" r="1.5" fill="#e0384a"/>
+<path d="M49 56 54.75 44 60.5 56Z" fill="#cfccd9"/><path d="M54.75 44 60.5 56H54.75Z" fill="#8f8ca0"/><circle cx="54.75" cy="46.2" r="1.5" fill="#e0384a"/>
+<rect x="15.8" y="16.8" width="32.4" height="39.2" rx="9.7" fill="#120e18"/>
+<rect x="18" y="19" width="28" height="37" rx="7.5" fill="#faf4e8"/>
+<rect x="18" y="48.4" width="28" height="7.6" fill="#ded6c8" clip-path="url(#b)"/>
+<rect x="18" y="37.5" width="28" height="5.6" fill="#e2283c"/><rect x="12" y="38.7" width="6.5" height="4.4" fill="#e2283c"/>
+<rect x="24.4" y="27.6" width="4.4" height="9" fill="#0e0b14"/><rect x="35.4" y="27.6" width="4.4" height="9" fill="#0e0b14"/>
+</g></svg>
