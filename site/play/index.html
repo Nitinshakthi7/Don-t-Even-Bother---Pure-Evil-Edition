@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Don't Even Bother | Play</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #game { position: absolute; left: 50%; top: 50%; border: 0; background: #000; transform-origin: 50% 50%; }
+</style>
+</head>
+<body>
+<iframe id="game" src="game.html" title="Don't Even Bother" allow="autoplay; gamepad"></iframe>
+<script>
+/* The game runs in a 1280x720 frame that never resizes: the engine picks its drawing scale once, at start, and
+   keeps it if its window changes later (which left it small inside black bars). This page scales the frame to
+   fit the browser window instead, in any window size and in full screen. */
+(function () {
+  var f = document.getElementById("game"), de = document.documentElement;
+  var sw = 1280, sh = 720;   // the size the game is built for (its own 16:9 canvas)
+  f.style.width = sw + "px"; f.style.height = sh + "px";
+  function fit() {
+    var w = window.innerWidth || de.clientWidth, h = window.innerHeight || de.clientHeight, k = Math.min(w / sw, h / sh);
+    f.style.transform = "translate(-50%,-50%) scale(" + k + ")";
+  }
+  fit(); window.addEventListener("resize", fit); setInterval(fit, 700);
+  function focusGame() { try { f.focus(); } catch (e) {} }
+  f.addEventListener("load", focusGame); window.addEventListener("focus", focusGame);
+  /* the game's own fullscreen setting is forwarded here */
+  window.addEventListener("message", function (e) {
+    var d = e.data; if (!d || d.deb !== "fullscreen") return;
+    try { if (d.on) { if (!document.fullscreenElement) de.requestFullscreen(); } else if (document.fullscreenElement) document.exitFullscreen(); } catch (x) {}
+  });
+})();
+</script>
+</body>
+</html>

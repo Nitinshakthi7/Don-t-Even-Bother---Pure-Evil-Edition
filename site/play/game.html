@@ -1,0 +1,739 @@
+<html lang="en-us"><script>
+// The game lives in a fixed-size frame that the outer page scales to the window. Its own "fullscreen" request
+// is handed to the outer page, so this frame never resizes (the engine does not re-scale after a resize).
+(function () { if (window.parent === window) return;
+  function ask(on) { try { window.parent.postMessage({ deb: "fullscreen", on: on }, "*"); } catch (e) {} return Promise.resolve(); }
+  Element.prototype.requestFullscreen = function () { return ask(true); };
+  Document.prototype.exitFullscreen = function () { return ask(false); };
+})();
+</script><script src="https://pygame-web.github.io/cdn/0.9.3/pythons.js" type=module id="site" data-python="python3.12" data-LINES=42 data-COLUMNS=132 data-os="vtx,snd,gui" async defer>#<!--
+
+print("""
+Loading deb-v18 from deb-v18.apk
+    Pygbag Version : 0.9.3
+    Template Version : 0.9.3
+    Python  : 3.12
+    CDN URL : https://pygame-web.github.io/cdn/0.9.3/
+    Screen  : 1280x720
+    Title   : deb-v18
+    Folder  : deb-v18
+    Authors : pgw
+    SPDX-License-Identifier: cookiecutter.spdx
+
+""")
+
+import sys
+import asyncio
+import platform
+import json
+from pathlib import Path
+
+# do not rename
+async def custom_site():
+    import embed
+    platform.document.body.style.background = "#7f7f7f"
+
+    platform.window.transfer.hidden = true
+    platform.window.canvas.style.visibility = "visible"
+
+
+    bundle = "deb-v18"
+
+    # the C or js loader could do that but be explicit.
+    appdir = Path(f"/data/data/{bundle}") # /data/data/deb-v18
+    appdir.mkdir()
+
+
+    # unpack filesystem from compressed archive into work dir
+    if platform.window.location.host.find('.itch.zone')>0:
+        import zipfile
+        async with platform.fopen("deb-v18.apk", "rb") as archive:
+            with zipfile.ZipFile(archive) as zip_ref:
+                zip_ref.extractall(appdir.as_posix())
+    else:
+        import tarfile
+        async with platform.fopen("deb-v18.tar.gz", "rb") as archive:
+            tar = tarfile.open(fileobj=archive, mode="r:gz")
+            tar.extractall(path=appdir.as_posix(), filter='tar')
+            tar.close()
+
+    # preloader will change to work dir and prepend it to sys.path
+    platform.run_main(PyConfig, loaderhome= appdir / "assets", loadermain=None)
+
+
+    # wait preloading complete : that includes images and wasm compilation of bundled modules
+    while embed.counter()<0:
+        await asyncio.sleep(.1)
+
+    main = appdir / "assets" / "main.py"
+
+    # TODO: test for window.webkitAudioContext and block aio loop until gesture if accessing media manager play
+    # before a gesture is recorded ( touch or click )
+
+    # test/wait user media interaction
+    if not platform.window.MM.UME:
+
+        # now that apk is mounted we have access to font cache
+        # but we need to fill __file__ that is not yet set
+        __import__(__name__).__file__ = main
+
+        # now make a prompt
+        msg  = "Ready to start ! Please click/touch page"
+        platform.window.infobox.innerText = msg
+        print("\n"*4, f"    * Waiting for media user engagement. {msg} *" , "\n"*4)
+
+        while not platform.window.MM.UME:
+            await asyncio.sleep(.1)
+
+    # start async top level machinery if not started and add a console in any case if requested.
+    await TopLevel_async_handler.start_toplevel(platform.shell, console=window.python.config.debug)
+
+    # now that apk is mounted we have access to font cache
+    # but we need to fill __file__/__name__ that are not yet set
+    __import__(__name__).__file__ = main
+
+
+    def ui_callback(pkg):
+        platform.window.infobox.innerText = f"installing {pkg}"
+
+    await shell.source(main, callback=ui_callback)
+
+    # if you don't reach that step
+    # your main.py has an infinite sync loop somewhere !
+
+    platform.window.infobox.style.display = "none"
+    platform.window.config.gui_divider = 1
+    platform.window.window_resize()
+    print("default.tmpl: done")
+
+    shell.interactive()
+
+asyncio.run( custom_site() )
+
+
+
+
+
+
+
+
+
+
+
+
+# BEGIN BLOCK
+#
+# now this is the html part you can (and should) customize
+# It is not mandatory : pygame-script when it reads the first line (also called
+# shebang ) of above code create absolute minimal widget set
+# required for running with default rules
+#
+# do not alter that comment block it is separating python code from html code
+# =============================================================================
+# --></script><head><!--
+//=============================================================================
+//
+//
+//
+//
+//
+//
+//
+
+    {%- if cookiecutter.comment != "" -%}
+{{cookiecutter.comment}}
+    {% endif %}
+
+--><script type="application/javascript">
+// END BLOCK
+
+
+
+// this dict is available under PyConfig.config from __main__
+
+config = {
+    xtermjs : "1" ,
+    _sdl2 : "canvas",
+    user_canvas : 0,
+    user_canvas_managed : 0,
+    gui_divider : 2,
+    ume_block : 1,
+    can_close : 0,
+    archive : "deb-v18",
+    gui_debug : 2,
+    cdn : "https://pygame-web.github.io/cdn/0.9.3/",
+    autorun : 0,
+    PYBUILD : "3.12",
+    fb_ar   :  1.77,
+    fb_width : "1280",
+    fb_height : "720"
+}
+
+function show_infobox() {
+    infobox.style.display = "block";
+
+    // Measure box
+    const w = infobox.offsetWidth;
+    const h = infobox.offsetHeight;
+
+    // Center in viewport
+    const left = (window.innerWidth - w) / 2;
+    const top = (window.innerHeight - h) / 2;
+
+    infobox.style.left = left + "px";
+    infobox.style.top = top + "px";
+}
+
+</script>
+
+    <title>deb-v18</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="height=device-height, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+
+
+    <link rel="icon" type="image/png" href="favicon.png" sizes="16x16">
+    <link rel="preconnect" href="https://pygame-web.github.io" crossorigin>
+    <link rel="preload" href="deb-v18.tar.gz" as="fetch" crossorigin="anonymous">
+
+    <style>
+        #status {
+            display: inline-block;
+            vertical-align: top;
+            margin-top: 20px;
+            margin-left: 30px;
+            font-weight: bold;
+            color: rgb(120, 120, 120);
+        }
+
+        #progress {
+            height: 20px;
+            width: 300px;
+        }
+
+        #infobox {
+            position: fixed; /* center relative to viewport */
+            background: green;
+            color: blue;
+            font-weight: bold;
+            padding: 12px 24px;
+ /*           display: none; */
+            z-index: 999999;
+        }
+        div.emscripten { text-align: center; }
+        div.emscripten_border { border: 1px solid black; }
+        div.thick_border { border: 4px solid black; }
+
+        /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+        /* average size of droid screen 470dp x 320dp  */
+        canvas.emscripten {
+            border: 0px none;
+            background-color: transparent;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+
+            padding: 0;
+            margin: 0 auto;
+
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+
+        body {
+            font-family: arial;
+            margin: 0;
+            padding: none;
+            background-color:powderblue;
+        }
+
+        .topright{
+           position:absolute;
+           top:0px;
+           right:0px;
+        }
+
+        .bottomright {
+            position:absolute;
+            top: 40%;
+            right: 0px;
+        }
+
+        .center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .trinfo{
+           position: relative;
+           right: 0px;
+           border: 1px solid black;
+        }
+
+        .framed{
+           position: relative;
+           top: 150px;
+           right: 10px;
+           border: 1px solid black;
+        }
+    </style>
+
+    <script>
+/*
+        if (navigator.serviceWorker)
+            navigator.serviceWorker.register("https://pygame-web.github.io/cdn/0.9.3/pygbag0.9.3.js")
+        else
+            console.warn("Service workers not supported")
+*/
+    </script>
+
+    <script src="https://pygame-web.github.io/cdn/0.9.3//browserfs.min.js"></script>
+
+<style id="fill-the-window">
+  html, body { height: 100%; margin: 0; background: #0e0b14; overflow: hidden; }
+  canvas.emscripten, canvas#canvas, canvas#canvas3d {
+    width: 100% !important; height: 100% !important;
+    max-width: 100% !important; max-height: 100% !important;
+    object-fit: contain !important;
+    position: absolute !important; inset: 0 !important; margin: auto !important;
+  }
+</style>
+<style id="dbl-style">
+  #dbl{--disp:"Arial Black","Helvetica Neue",Helvetica,Arial,sans-serif;position:fixed;inset:0;z-index:2147483000;background:#0b0810;color:#f3ecdf;
+    font-family:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif;overflow:hidden;transition:opacity .8s ease,transform .8s ease,visibility .8s}
+  #dbl.done{opacity:0;visibility:hidden;pointer-events:none;transform:scale(1.04)}
+  #dbl-cv{position:absolute;inset:0;width:100%;height:100%}
+  #dbl .shade{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(10,6,16,.9) 0%,rgba(10,6,16,.5) 42%,rgba(10,6,16,0) 70%),linear-gradient(0deg,rgba(10,6,16,.92) 0%,rgba(10,6,16,0) 40%),radial-gradient(ellipse at 60% 40%,transparent 50%,rgba(5,3,10,.55) 100%)}
+  #dbl .pane{position:absolute;left:max(24px,5vw);right:max(24px,5vw);bottom:max(26px,5vh)}
+  #dbl .logo{font-family:var(--disp);text-transform:uppercase;line-height:.86;font-size:clamp(34px,5.4vw,78px);margin-bottom:clamp(14px,3vh,30px);color:#f3ecdf;text-shadow:.045em .045em 0 #5e0d22}
+  #dbl .logo span{display:block}#dbl .logo .b{font-size:1.66em}
+  #dbl .logo small{display:block;margin-top:.9em;font:800 max(.2em,10px)/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.55em;color:#e11d48;text-shadow:none}
+  #dbl .card{max-width:min(560px,100%);min-height:118px;padding:16px 22px;background:rgba(14,10,22,.62);border-left:3px solid #ff8a3d;border-radius:0 10px 10px 0;backdrop-filter:blur(6px);transition:opacity .4s,transform .4s}
+  #dbl .card.swap{opacity:0;transform:translateY(8px)}
+  #dbl .card b{display:block;font-weight:800;font-size:clamp(17px,2vw,22px);line-height:1.25}
+  #dbl .card p{margin:6px 0 0;font-size:clamp(13px,1.4vw,16px);color:#ece4f3;line-height:1.45}
+  #dbl .card small{display:block;margin-top:6px;font-size:13px;color:#a99db6}
+  #dbl .status{margin:clamp(14px,3vh,28px) 0 30px;min-height:1.4em;font-size:clamp(15px,1.8vw,22px);font-weight:600}
+  #dbl .bar{position:relative;height:4px;background:rgba(255,255,255,.22);border-radius:2px}
+  #dbl .fill{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);background:#ff8a3d;border-radius:2px}
+  #dbl .blank{position:absolute;top:-23px;left:0;width:20px;height:20px;margin-left:-10px;border-radius:5px 5px 4px 4px;background:#f6efe2;box-shadow:inset 0 -5px 0 #ddd3c2;animation:dbl-hop .55s infinite cubic-bezier(.3,.8,.5,1)}
+  #dbl .blank::before{content:"";position:absolute;left:4px;top:5px;width:3px;height:7px;background:#100a16;box-shadow:8px 0 0 #100a16}
+  #dbl .blank::after{content:"";position:absolute;left:-1px;right:-1px;top:12px;height:4px;background:#e11d48}
+  @keyframes dbl-hop{45%{transform:translateY(-9px)}}
+  #dbl .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:22px;font-size:14px;color:#d8cfe2}
+  #dbl .pct{font:900 clamp(34px,4.6vw,58px)/.9 var(--disp);color:#f3ecdf;font-variant-numeric:tabular-nums}
+  #dbl .pct::after{content:"%"}
+  #dbl .go{display:none;padding:15px 52px;border:0;border-radius:999px;font:900 18px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.3em;text-transform:uppercase;color:#1a0a14;cursor:pointer;
+    background:linear-gradient(90deg,#e11d48,#ff8a3d);box-shadow:0 0 0 0 rgba(255,122,69,.5);animation:dbl-p 1.3s infinite;transition:transform .1s}
+  #dbl .go:hover{transform:scale(1.04)}#dbl .go:active{transform:scale(.97)}
+  @keyframes dbl-p{70%{box-shadow:0 0 0 16px rgba(255,122,69,0)}}
+  #dbl .hint{display:none;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#a99db6;margin-top:8px;text-align:center}
+  @media (max-width:640px){#dbl .foot{flex-wrap:wrap}#dbl .go{order:3;width:100%}}
+  @media (prefers-reduced-motion:reduce){#dbl *{animation:none!important}}
+</style>
+</head>
+
+<body>
+    <div id="dbl" role="status" aria-label="Don't Even Bother, loading">
+        <canvas id="dbl-cv" aria-hidden="true"></canvas>
+        <div class="shade"></div>
+        <div class="pane">
+            <div class="logo"><span class="a">Don't Even</span><span class="b">Bother</span><small>Pure Evil Edition</small></div>
+            <div class="card" id="dbl-card"><b></b><p></p><small></small></div>
+            <div class="status" id="dbl-status">Counting the spikes. Twice…</div>
+            <div class="bar"><div class="fill" id="dbl-fill"></div><div class="blank" id="dbl-blank"></div></div>
+            <div class="foot"><span id="dbl-loc">Loading Act I · The Ruins</span><button class="go" id="dbl-go" type="button">Play</button><span class="pct" id="dbl-pct">0</span></div>
+            <div class="hint" id="dbl-hint">or press Enter</div>
+        </div>
+    </div>
+
+    <div id="transfer" align=center>
+<!--        <div class="spinner" id='spinner'></div> -->
+        <div class="emscripten" id="status">Downloading...</div>
+        <div class="emscripten">
+            <progress value="0" max="100" id="progress"></progress>
+        </div>
+    </div>
+
+
+
+    <canvas class="emscripten" id="canvas"
+width="1px"
+height="1px"
+    oncontextmenu="event.preventDefault()" tabindex=1>
+    </canvas>
+
+    <canvas class="emscripten" id="canvas3d"
+width="1280px"
+height="720px"
+    oncontextmenu="event.preventDefault()" tabindex=1 hidden>
+    </canvas>
+
+    <div id="infobox">Loading, please wait ...</div>
+
+    <div id=html></div>
+
+    <div id=crt  class=bottomright >
+
+        <div id="system" hidden>
+            <div class="button-container">
+                <button id="aiostop" disabled>AIO ⏏︎</button>
+                <button id="aiopaused_true" disabled>AIO ■</button>
+                <button id="aiopaused_false" disabled>AIO ▶</button>
+                <button id="pygame_mixer_music_pause" disabled>Music ■</button>
+            </div>
+
+            <div class="button-container">
+                <div id=load_min>min</div>
+                <div id=load_avg>avg</div>
+                <div id=load_max>max</div>
+              <button id="load_rst" disabled>RESET</button>
+            </div>
+
+            <div id="level">(battery level unknown)</div>
+            <div id="stateBattery">(charging state unknown)</div>
+
+        </div>
+
+        <div id=box class="emscripten_border" hidden=true>
+
+            <div id="info" class="trinfo"></div>
+
+            <iframe id="iframe" class="framed" name="iframe"
+width="470px" height="90%"
+allowtransparency="true"
+style="z-index: 10;"
+style="background: #FFFFFF;"
+frameborder="1"
+                allowfullscreen="true"
+                webkitallowfullscreen="true"
+                msallowfullscreen="true"
+                mozallowfullscreen="true"
+                sandbox="allow-same-origin allow-top-navigation allow-scripts allow-pointer-lock"
+                allow="autoplay; fullscreen *; geolocation; microphone; camera; midi; monetization; xr-spatial-tracking; gamepad; gyroscope; accelerometer; xr; cross-origin-isolated"
+                src="https://pygame-web.github.io/cdn/0.9.3/empty.html"
+                scrolling="yes">
+            </iframe>
+        </div>
+
+    </div>
+
+
+    <div id="dlg" hidden>
+        <input type="file" id="dlg_multifile" multiple accept="image/*">
+        <label for="dlg_multifile">Select files</label>
+    </div>
+
+    <div id="pyconsole">
+        <div id="terminal" tabIndex=1 align="left"></div>
+    </div>
+
+    <script type="application/javascript">
+
+    globalThis.__canvas_resized = (self, ecw, ech) => {
+        console.warn("TODO: panda3d canvas monitor", self, ecw, ech)
+    }
+
+    async function custom_onload(debug_hidden) {
+        // this is called before anything python is loaded
+        // make your js customization here
+        console.log(__FILE__, "custom_onload")
+
+        pyconsole.hidden = debug_hidden
+        system.hidden = debug_hidden
+        transfer.hidden = debug_hidden
+        info.hidden = debug_hidden
+        box.hidden =  debug_hidden
+
+        show_infobox()
+    }
+
+    function custom_prerun(){
+        // no python main and no (MEMFS + VFS) yet.
+        console.log(__FILE__, "custom_prerun")
+
+    }
+
+    function custom_postrun(){
+        // python main and no VFS filesystem yet.
+        console.log(__FILE__, "custom_postrun")
+
+    }
+
+    function debug() {
+        // allow to gain access to dev tools from js console
+        // but only on desktop. difficult to reach when in iframe
+        python.config.debug = true
+        custom_onload(false)
+        Module.PyRun_SimpleString("shell.uptime()")
+        window_resize()
+    }
+
+    function info_inline(data){
+        document.getElementById("info").innerHTML = data
+    }
+
+    function info_online(url) {
+        // display info about current APK
+        fetch( url /*, options */)
+            .then((response) => response.text())
+            .then((html) => {
+                info_inline(html);
+        })
+        .catch((error) => {
+            console.warn(error);
+        });
+    }
+
+    function frame_online(url) {
+        window.frames["iframe"].location = url;
+    }
+
+    </script>
+
+    <script>
+    // Loading screen: full-screen scenes from the game (characters + locations) while it loads.
+    // The art runs in a Web Worker (OffscreenCanvas) so it keeps animating while the engine blocks the main thread.
+    function dblMakeScene(ctx, post, reduce) {
+        var W = 0, H = 0, dpr = 1, u = 1, T = 0, stopped = false, last = 0, A = 1, narrow = false, gy = 0, curScene = -1, sx0 = 0, sh0 = 0;
+        var D = 7.5, N = 4;   // seconds per scene, number of scenes
+        function clamp(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+        function hash(n) { n = Math.sin(n * 127.1) * 43758.5453; return n - Math.floor(n); }
+        function rgb(c) { return "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")"; }
+        function rr(x, y, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+        /* the game's characters: [body, scarf, outline, eyes, sole, radius, look, crest] */
+        var SK = {
+            blank: [[250, 244, 232], [226, 40, 60], [18, 14, 24], [14, 11, 20], [222, 214, 200], 8, "dots", null],
+            halo: [[255, 252, 240], [255, 204, 77], [18, 14, 24], [14, 11, 20], [240, 232, 200], 13, "calm", "halo"],
+            horns: [[60, 58, 70], [214, 36, 56], [18, 14, 24], [255, 92, 110], [44, 42, 52], 3, "angry", "horns"],
+            summit: [[170, 215, 255], [255, 255, 255], [18, 14, 24], [14, 11, 20], [140, 185, 225], 10, "goggles", "bobble"]
+        };
+        function skin(k, cx, baseY, h, blink) {
+            var s = h / 34, w = 26 * s, x = cx - w / 2, y = baseY - h, r = k[5] * s, i;
+            ctx.save();
+            rr(x - 2 * s, y - 2 * s, w + 4 * s, h + 4 * s, r + s); ctx.fillStyle = rgb(k[2]); ctx.fill();
+            rr(x, y, w, h, r); ctx.fillStyle = rgb(k[0]); ctx.fill();
+            ctx.save(); rr(x, y, w, h, r); ctx.clip(); ctx.fillStyle = rgb(k[4]); ctx.fillRect(x, y + h - 7 * s, w, 7 * s); ctx.fillStyle = rgb(k[1]); ctx.fillRect(x, y + h * .5, w, 5 * s); ctx.restore();
+            var cr = k[7], sc = rgb(k[1]); ctx.fillStyle = sc; ctx.strokeStyle = sc; ctx.lineWidth = 2 * s;
+            if (cr === "halo") { ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.ellipse(cx, y - 7 * s, w * .38, 3.2 * s, 0, 0, 7); ctx.stroke(); }
+            else if (cr === "horns") { ctx.beginPath(); ctx.moveTo(x + s, y + s); ctx.lineTo(x + 3 * s, y - 10 * s); ctx.lineTo(x + 9 * s, y + s); ctx.fill(); ctx.beginPath(); ctx.moveTo(x + w - s, y + s); ctx.lineTo(x + w - 3 * s, y - 10 * s); ctx.lineTo(x + w - 9 * s, y + s); ctx.fill(); }
+            else if (cr === "bobble") { ctx.fillRect(cx - 1.2 * s, y - 4 * s, 2.4 * s, 5 * s); ctx.beginPath(); ctx.arc(cx, y - 6 * s, 4.5 * s, 0, 7); ctx.fillStyle = "#fff"; ctx.fill(); }
+            var l = k[6], e1 = x + 6 * s, e2 = x + 16 * s, ey = y + 8 * s; ctx.fillStyle = rgb(k[3]); ctx.strokeStyle = rgb(k[3]); ctx.lineWidth = 1.8 * s;
+            if (blink) { ctx.fillRect(e1, ey + 5 * s, 4 * s, 1.6 * s); ctx.fillRect(e2, ey + 5 * s, 4 * s, 1.6 * s); }
+            else if (l === "dots") { ctx.fillRect(e1, ey, 4 * s, 8 * s); ctx.fillRect(e2, ey, 4 * s, 8 * s); }
+            else if (l === "calm") { ctx.beginPath(); ctx.arc(e1 + 2 * s, ey + 5 * s, 3 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.beginPath(); ctx.arc(e2 + 2 * s, ey + 5 * s, 3 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+            else if (l === "angry") { ctx.fillRect(e1, ey + 2 * s, 4 * s, 6 * s); ctx.fillRect(e2, ey + 2 * s, 4 * s, 6 * s); ctx.beginPath(); ctx.moveTo(e1 - 2 * s, ey - s); ctx.lineTo(e1 + 5 * s, ey + 2 * s); ctx.moveTo(e2 + 6 * s, ey - s); ctx.lineTo(e2 - s, ey + 2 * s); ctx.stroke(); }
+            else if (l === "goggles") { ctx.fillStyle = "#bfe8ff"; [e1, e2].forEach(function (ex) { ctx.beginPath(); ctx.arc(ex + 2 * s, ey + 4 * s, 5 * s, 0, 7); ctx.fill(); ctx.strokeStyle = "#1a1220"; ctx.stroke(); ctx.fillStyle = "#0e0b14"; ctx.fillRect(ex + .5 * s, ey + 2 * s, 3 * s, 4 * s); ctx.fillStyle = "#bfe8ff"; }); }
+            ctx.restore();
+        }
+        /* shared pieces */
+        function sky(stops, to) { var g = ctx.createLinearGradient(0, 0, 0, to); for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]); ctx.fillStyle = g; ctx.fillRect(-40, -40, W + 80, H + 80); }
+        function stars(t, n, lim, col) { ctx.fillStyle = col || "#ffe9d6"; for (var i = 0; i < n; i++) { ctx.globalAlpha = A * (.3 + .5 * Math.abs(Math.sin(t * .8 + hash(i) * 6.28))); ctx.fillRect(hash(i + 1) * W, hash(i + 77) * lim, (.6 + hash(i + 9) * 1.5) * u, (.6 + hash(i + 9) * 1.5) * u); } ctx.globalAlpha = A; }
+        function moon(x, y, r, col, glow) { var g = ctx.createRadialGradient(x, y, r * .4, x, y, r * 3.6); g.addColorStop(0, glow); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(x - r * 3.6, y - r * 3.6, r * 7.2, r * 7.2); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+        function ridge(x, base, amp, ph) { return base - amp * (.55 + .3 * Math.sin(x * .004 + ph) + .2 * Math.sin(x * .011 + ph * 1.3 + 1) + .1 * Math.sin(x * .023 + ph * .7)); }
+        function hills(t, cols) { for (var l = 0; l < cols.length; l++) { var c = cols[l], dx = t * c[3]; ctx.fillStyle = c[0]; ctx.beginPath(); ctx.moveTo(-10, gy + 2); for (var x = -10; x <= W + 10; x += 10) ctx.lineTo(x, ridge(x + dx, gy - c[1] * H, c[2] * H, 1.3 + l * 1.7)); ctx.lineTo(W + 10, gy + 2); ctx.closePath(); ctx.fill(); } }
+        function ground(top, body, spk) { ctx.fillStyle = body; ctx.fillRect(-40, gy, W + 80, H - gy + 40); ctx.fillStyle = top; ctx.fillRect(-40, gy, W + 80, 5 * u);
+            for (var i = 0; i < 260; i++) { ctx.fillStyle = hash(i) > .5 ? spk[0] : spk[1]; ctx.fillRect(hash(i + 5) * W, gy + 12 * u + hash(i + 50) * (H - gy), (3 + hash(i + 9) * 7) * u, (2 + hash(i + 19) * 3) * u); } }
+        function spikes(x, n, lit) { var sw = 26 * u, sh = 36 * u, i; for (i = 0; i < n; i++) { var bx = x + i * sw, a = lit ? lit(bx + sw / 2) : 1; ctx.globalAlpha = A * a; ctx.fillStyle = "#cfccd9"; ctx.beginPath(); ctx.moveTo(bx, gy); ctx.lineTo(bx + sw / 2, gy - sh); ctx.lineTo(bx + sw, gy); ctx.fill(); ctx.fillStyle = "#8f8ca0"; ctx.beginPath(); ctx.moveTo(bx + sw / 2, gy - sh); ctx.lineTo(bx + sw, gy); ctx.lineTo(bx + sw / 2, gy); ctx.fill(); ctx.fillStyle = "#e0384a"; ctx.beginPath(); ctx.arc(bx + sw / 2, gy - sh + 3 * u, 2.4 * u, 0, 7); ctx.fill(); } ctx.globalAlpha = A; }
+        function portal(x) { var pw = 58 * u, ph = 104 * u; ctx.fillStyle = "#f6c35a"; rr(x - 14 * u, gy - ph - 18 * u, 28 * u, 9 * u, 3 * u); ctx.fill(); ctx.fillStyle = "#0c0810"; ctx.beginPath(); ctx.moveTo(x - pw / 2, gy); ctx.lineTo(x - pw / 2, gy - ph + pw / 2); ctx.arc(x, gy - ph + pw / 2, pw / 2, Math.PI, 0); ctx.lineTo(x + pw / 2, gy); ctx.fill();
+            ctx.strokeStyle = "#ff8a3d"; ctx.lineWidth = 6 * u; ctx.beginPath(); ctx.ellipse(x, gy - ph * .45, 16 * u, 25 * u, 0, 0, 7); ctx.stroke(); ctx.strokeStyle = "#c24a2e"; ctx.lineWidth = 3 * u; ctx.beginPath(); ctx.ellipse(x, gy - ph * .45, 8 * u, 13 * u, 0, 0, 7); ctx.stroke(); }
+        function blob(x, t) { var b = Math.abs(Math.sin(t * 2.2)) * 6 * u, w = 22 * u; ctx.fillStyle = "#79c56b"; ctx.beginPath(); ctx.ellipse(x, gy - 17 * u - b, w, 17 * u + b * .3, 0, Math.PI, 0); ctx.fill(); ctx.fillRect(x - w, gy - 17 * u - b, w * 2, 17 * u + b);
+            ctx.fillStyle = "#2c5a36"; ctx.fillRect(x - 13 * u, gy - 27 * u - b, 7 * u, 4 * u); ctx.fillRect(x + 5 * u, gy - 27 * u - b, 7 * u, 4 * u); ctx.fillStyle = "#14101c"; ctx.fillRect(x - 11 * u, gy - 24 * u - b, 3 * u, 5 * u); ctx.fillRect(x + 6 * u, gy - 24 * u - b, 3 * u, 5 * u); }
+        function saw(x, y, r, t, dir) { ctx.save(); ctx.translate(x, y); ctx.rotate(t * 5 * dir); ctx.fillStyle = "#d6cddd"; ctx.beginPath(); for (var j = 0; j < 24; j++) { var rr2 = j % 2 ? r * .8 : r, an = j / 24 * 6.2832; ctx.lineTo(Math.cos(an) * rr2, Math.sin(an) * rr2); } ctx.fill();
+            ctx.fillStyle = "#8f8ca0"; ctx.beginPath(); ctx.arc(0, 0, r * .62, 0, 7); ctx.fill(); ctx.fillStyle = "#0b0810"; ctx.beginPath(); ctx.arc(0, 0, r * .16, 0, 7); ctx.fill(); ctx.fillStyle = "#e0384a"; for (j = 0; j < 4; j++) { ctx.fillRect(r * .3, -r * .04, r * .22, r * .08); ctx.rotate(1.5708); } ctx.restore(); }
+        function embers(t, n, col) { ctx.fillStyle = col; for (var i = 0; i < n; i++) { var y = ((hash(i + 3) - t * (.03 + hash(i + 8) * .05)) % 1 + 1) % 1; ctx.globalAlpha = A * (.25 + .5 * Math.abs(Math.sin(t * 1.5 + i))); ctx.fillRect(hash(i + 4) * W + Math.sin(t + i) * 10, y * H, (1 + hash(i) * 2.4) * u, (1 + hash(i) * 2.4) * u); } ctx.globalAlpha = A; }
+
+        /* scene 0: The Ruins (Act I), The Blank at the portal */
+        function sceneRuins(t) {
+            sky([[0, "#1f1233"], [.42, "#4a2447"], [.78, "#a14a50"], [1, "#e0864a"]], gy); stars(t, 150, gy * .6);
+            moon(W * (narrow ? .78 : .74), gy * .22, 62 * u, "#ecc0b8", "rgba(236,192,184,.4)");
+            hills(t, [["#7a436f", .06, .36, 8], ["#55295f", .03, .28, 16], ["#37193f", 0, .2, 28]]);
+            ground("#ec9f5c", "#583a4e", ["#6d4962", "#3d2838"]);
+            portal(W * (narrow ? .9 : .9)); spikes(W * (narrow ? .06 : .78), 4); blob(W * (narrow ? .12 : .52), t);
+            var bob = Math.abs(Math.sin(t * 1.9)) * 6 * u;
+            skin(SK.blank, sx0, gy + 6 * u - bob, sh0, t % 4.6 < .12);
+        }
+        /* scene 1: The Gauntlet (Act II), Masochist in the saw mill */
+        function sceneSaws(t) {
+            sky([[0, "#150a1c"], [.5, "#4a1238"], [.85, "#b81e4a"], [1, "#ff7a45"]], gy); stars(t, 90, gy * .5, "#ffd0da");
+            hills(t, [["#3d0f33", .05, .3, 10], ["#240b25", 0, .2, 20]]);
+            ground("#e0384a", "#26101e", ["#3a1830", "#1a0a16"]);
+            saw(W * (narrow ? .8 : .86), gy - 4 * u, 120 * u * (narrow ? .6 : 1), t, 1); saw(W * (narrow ? .3 : .5), gy - 4 * u, 70 * u * (narrow ? .6 : 1), t, -1);
+            /* hanging saw on an arm */
+            var sx = W * (narrow ? .62 : .78), sw = Math.sin(t * 1.3) * .35; ctx.save(); ctx.translate(sx, -10); ctx.rotate(sw); ctx.fillStyle = "#3a2b45"; ctx.fillRect(-3 * u, 0, 6 * u, H * .3); ctx.restore();
+            saw(sx + Math.sin(sw) * H * .3, Math.cos(sw) * H * .3, 54 * u * (narrow ? .6 : 1), t, 1);
+            embers(t, 60, "#ff8a3d");
+            var hop = Math.abs(Math.sin(t * 1.5));
+            skin(SK.horns, sx0, gy - hop * H * .22, sh0, t % 3.8 < .12);
+        }
+        /* scene 2: The Climb (Act III), the Summiteer near the top */
+        function sceneClimb(t) {
+            sky([[0, "#0d0c1c"], [.5, "#241a4a"], [1, "#6b3a9a"]], H); stars(t, 170, H * .8, "#e8e0ff");
+            moon(W * (narrow ? .25 : .36), H * .22, 54 * u, "#e8dcf0", "rgba(200,180,255,.35)");
+            for (var c = 0; c < 6; c++) { var cy = ((c * .22 + t * .02) % 1.3) * H - .15 * H, cx = (hash(c + 40) * 1.2 - .1) * W; ctx.fillStyle = "rgba(190,170,240,.12)"; ctx.beginPath(); ctx.ellipse(cx, cy, 170 * u, 26 * u, 0, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(cx + 70 * u, cy - 12 * u, 110 * u, 20 * u, 0, 0, 7); ctx.fill(); }
+            var tx = narrow ? W * .6 : Math.min(W - 110 * u, sx0 + 100 * u), tw = 150 * u, rise = (t * 20 * u) % (110 * u);
+            ctx.fillStyle = "#120c22"; ctx.fillRect(tx - tw / 2, -20, tw, H + 40);
+            for (var p = -1; p < 9; p++) { var py = H * .96 - p * 110 * u + rise, side = p % 2 ? -1 : 1, px = side > 0 ? tx + tw / 2 : tx - tw / 2 - 90 * u; ctx.fillStyle = "#1d1336"; ctx.fillRect(px, py, 90 * u, 16 * u); ctx.fillStyle = "#8a6ad8"; ctx.fillRect(px, py, 90 * u, 4 * u); }
+            var by = H * .96 - 4 * 110 * u + rise, bob = Math.abs(Math.sin(t * 1.9)) * 4 * u, hh = (narrow ? .2 : .36) * H;
+            ctx.fillStyle = "#1d1336"; ctx.fillRect(tx - tw / 2 - 90 * u, by, 90 * u, 16 * u); ctx.fillStyle = "#8a6ad8"; ctx.fillRect(tx - tw / 2 - 90 * u, by, 90 * u, 4 * u);
+            var save = gy; gy = by; skin(SK.summit, tx - tw / 2 - 45 * u, by - bob, hh * .62, t % 4.2 < .12); gy = save;
+        }
+        /* scene 3: Lights Out (level 5), the halo is the only light */
+        function sceneDark(t) {
+            ctx.fillStyle = "#07050b"; ctx.fillRect(-40, -40, W + 80, H + 80);
+            var cx = sx0, cyy = gy - (narrow ? .12 : .22) * H, R = H * .62 * (1 + .03 * Math.sin(t * 2));
+            function lit(x) { return clamp(1 - Math.abs(x - cx) / (R * 1.3)); }
+            ctx.fillStyle = "#14101c"; ctx.fillRect(-40, gy, W + 80, H); ctx.fillStyle = "rgba(255,214,120," + .6 * A + ")"; ctx.fillRect(cx - R * 1.2, gy, R * 2.4, 3 * u);
+            spikes(cx - 8 * 26 * u, 4, lit); spikes(cx + 4.4 * 26 * u, 4, lit); spikes(cx - 3.2 * 26 * u * 3, 3, lit);
+            var g = ctx.createRadialGradient(cx, cyy, 0, cx, cyy, R); g.addColorStop(0, "rgba(255,226,140,.5)"); g.addColorStop(.5, "rgba(255,190,90,.14)"); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            var bob = Math.abs(Math.sin(t * 1.7)) * 5 * u; skin(SK.halo, cx, gy + 6 * u - bob, sh0, t % 4.4 < .12);
+            embers(t, 40, "#ffe08a");
+        }
+        var SCENES = [sceneRuins, sceneSaws, sceneClimb, sceneDark];
+        function drawScene(i, t, z) {
+            ctx.save(); ctx.translate(W * .66, H * .5); ctx.scale(z, z); ctx.translate(-W * .66, -H * .5);
+            SCENES[i](t); ctx.restore();
+        }
+        function size(w, h, d) {
+            W = w; H = h; dpr = d; ctx.canvas.width = W * dpr; ctx.canvas.height = H * dpr;
+            narrow = W < 820; u = Math.max(.45, Math.min(H / 720, W / 900) * (narrow ? 1.25 : 1.15)); gy = Math.round(H * (narrow ? .36 : .8));
+            var cardR = W * .05 + Math.min(560, W * .9); sh0 = narrow ? .24 * H : Math.min(.44 * H, Math.max(120, (W - cardR - 60) * 1.1)); var cw = sh0 * .77; sx0 = narrow ? W * .5 : cardR + 30 + cw / 2 + Math.max(0, W - cardR - 30 - cw) * .4;
+        }
+        function draw() {
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            var s = reduce ? 0 : Math.floor(T / D) % N, loc = reduce ? 0 : T - Math.floor(T / D) * D, fade = reduce ? 0 : clamp((loc - (D - 1.2)) / 1.2);
+            if (s !== curScene) { curScene = s; post({ s: s }); }
+            A = 1; ctx.globalAlpha = 1; drawScene(s, T, 1 + .05 * (loc / D));
+            if (fade > 0) { var ns = (s + 1) % N; A = fade; ctx.globalAlpha = fade; drawScene(ns, T, 1 + .05 * ((loc - D) / D)); A = 1; ctx.globalAlpha = 1; }
+        }
+        var raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : function (f) { return setTimeout(function () { f(Date.now()); }, 16); };
+        function frame(t) {
+            if (stopped) return;
+            var dt = Math.min((t - last) / 1000 || 0, .05); last = t;
+            if (W) { T += reduce ? 0 : dt; if (reduce && !T) T = 2; draw(); }
+            raf(frame);
+        }
+        raf(frame);
+        return { size: size, stop: function () { stopped = true; } };
+    }
+
+    (function () {
+        var $ = function (i) { return document.getElementById(i); };
+        var ov = $("dbl"), cv = $("dbl-cv"), fill = $("dbl-fill"), blank = $("dbl-blank"), pctEl = $("dbl-pct"), statusEl = $("dbl-status"), locEl = $("dbl-loc"),
+            card = $("dbl-card"), go = $("dbl-go"), hint = $("dbl-hint"), infobox = $("infobox");
+        var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var p = 0, target = 0, ready = false, revealed = false, starting = false, finished = false, t0 = Date.now(), MIN_MS = reduce ? 0 : 5000, archiveDone = false;
+        // Hold the game back: its start-up code waits while MM.UME is false, so the credits and sound
+        // only begin after the player presses PLAY (even if the browser would have allowed autoplay).
+        var unlocked = false;
+        (function hold() { var iv = setInterval(function () { if (!window.MM) return; clearInterval(iv);
+            try { Object.defineProperty(window.MM, "UME", { configurable: true, get: function () { return unlocked; }, set: function () {} }); } catch (e) {} }, 20); })();
+
+        /* what each scene says: heading, text, small print, location label */
+        var SC = [
+            ["Big spikes, small download", "The first load takes a moment while the whole game downloads once. Music and sound included.", "Next time it opens much faster.", "Loading Act I · The Ruins"],
+            ["Hope you memorised Act I", "Act II is eight long, fast runs. Saws, springs and rhythm.", "Tip: R restarts from the last checkpoint instantly.", "Loading Act II · The Gauntlet"],
+            ["Every step up is a step you can lose", "Act III is one giant vertical tower, and the narrator is watching.", "It remembers where you keep dying.", "Loading Act III · The Climb"],
+            ["Who turned off the lights?", "Level 5 is exactly what it sounds like.", "Headphones recommended. Patience required.", "Loading Level 5 · Lights Out"]];
+        var curS = -1;
+        function showScene(i) {
+            if (i === curS || finished) return; curS = i; card.classList.add("swap");
+            setTimeout(function () { var c = SC[i]; card.querySelector("b").textContent = c[0]; card.querySelector("p").textContent = c[1]; card.querySelector("small").textContent = c[2]; locEl.textContent = c[3]; card.classList.remove("swap"); }, 380);
+        }
+        card.querySelector("b").textContent = SC[0][0]; card.querySelector("p").textContent = SC[0][1]; card.querySelector("small").textContent = SC[0][2]; locEl.textContent = SC[0][3]; curS = 0;
+
+        // ---------- canvas scenes (worker if possible, else main thread) ----------
+        var worker = null, scene = null, de = document.documentElement, lastDims = "";
+        function dims() { return [innerWidth || de.clientWidth || 1280, innerHeight || de.clientHeight || 720, Math.min(window.devicePixelRatio || 1, 2)]; }
+        try {
+            if (typeof OffscreenCanvas !== "undefined" && cv.transferControlToOffscreen && window.Worker) {
+                var src = "var mk=" + dblMakeScene.toString() + ";var sc,rd=" + !!reduce + ";onmessage=function(e){var m=e.data;" +
+                    "if(m.cv){sc=mk(m.cv.getContext('2d'),function(x){postMessage(x)},rd);sc.size(m.s[0],m.s[1],m.s[2]);}else if(m.s&&sc)sc.size(m.s[0],m.s[1],m.s[2]);};";
+                worker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+                var off = cv.transferControlToOffscreen();
+                worker.postMessage({ cv: off, s: dims() }, [off]);
+                worker.onmessage = function (e) { if (e.data && e.data.s != null) showScene(e.data.s); };
+            }
+        } catch (err) { worker = null; }
+        if (!worker) { scene = dblMakeScene(cv.getContext("2d"), function (x) { if (x && x.s != null) showScene(x.s); }, reduce); var d0 = dims(); scene.size(d0[0], d0[1], d0[2]); }
+        // resize events can be missed (background tab, hidden pane), so re-check the size now and then
+        setInterval(function () { var d = dims(), s = d.join(); if (s === lastDims) return; lastDims = s; if (worker) worker.postMessage({ s: d }); else if (scene) scene.size(d[0], d[1], d[2]); }, 500);
+
+        // ---------- progress: the game archive is a real download ----------
+        function raise(t) { target = Math.max(target, Math.min(t, 100)); }
+        var ARCHIVE_SHARE = 35;
+        fetch("deb-v18.tar.gz").then(function (r) {
+            var total = +r.headers.get("content-length") || 0, got = 0;
+            if (!r.body || !r.body.getReader) return r.arrayBuffer();
+            var rd = r.body.getReader();
+            return (function pump() { return rd.read().then(function (c) { if (c.done) return; got += c.value.length; if (total) raise(got / total * ARCHIVE_SHARE); return pump(); }); })();
+        }).catch(function () {}).then(function () { archiveDone = true; raise(ARCHIVE_SHARE); });
+        // the engine comes from a CDN without byte counts, so ease towards 92% while it boots
+        setInterval(function () { if (archiveDone && !ready && target < 92) raise(target + (92 - target) * 0.035); }, 250);
+        function paint() {
+            p += (target - p) * .2; if (target - p < .25) p = target;
+            fill.style.transform = "scaleX(" + p / 100 + ")"; blank.style.left = p + "%"; pctEl.textContent = Math.round(p);
+            if (ready && !revealed && p >= 99.5) reveal();   // PLAY only appears once the bar really is at 100%
+        }
+        function reveal() {
+            revealed = true; statusEl.textContent = "All set. Allegedly. Ready, unfortunately.";
+            go.style.display = "inline-block"; hint.style.display = "block"; go.focus();
+        }
+        var pt = setInterval(paint, 60);
+
+        // ---------- status lines in the game's own words ----------
+        var bands = [
+            ["Unpacking 19 levels of regret", "Counting the spikes. Twice", "Teaching the saws to wait their turn", "Hiding the invisible spikes", "Oiling the falling platforms", "Waiting for the arrow trap to pick a direction"],
+            ["Waiting for the trampoline to stop bouncing", "Asking the fan to blow the other way", "Convincing the rock head to stay up", "Warming up the fire. Gently", "Making the ice extra slippery", "Waiting for the spiked ball to finish its swing"],
+            ["Writing the narrator's insults", "Calibrating the Spite meter", "Polishing 14 skins nobody asked for", "Rehearsing the narrator's sigh", "Loading Brutal mode. Why", "Waiting for the bot to finish the level first"],
+            ["Sharpening the last spike", "Spawning your first mistake", "Dusting off the death counter", "Almost. Probably", "Resetting your hope to zero", "Placing one spike exactly where you'll land"]];
+        var lastBand = -1, order = [], oi = 0;
+        function nextStatus() {
+            if (revealed || starting || finished) return;
+            var b = target < 35 ? 0 : target < 62 ? 1 : target < 85 ? 2 : 3;
+            if (b !== lastBand || oi >= order.length) { lastBand = b; order = bands[b].slice().sort(function () { return Math.random() - .5; }); oi = 0; }
+            statusEl.textContent = order[oi++] + "…";
+        }
+        nextStatus(); setInterval(nextStatus, 2400);
+
+        // ---------- hand-over to the game ----------
+        function finish() {
+            if (finished) return;
+            finished = true; target = p = 100; clearInterval(pt);
+            ov.classList.add("done"); removeEventListener("keydown", key);
+            setTimeout(function () { if (worker) worker.terminate(); if (scene) scene.stop(); ov.remove(); }, 1000);
+        }
+        function check() {
+            if (finished || ready) return;
+            var t = infobox.innerText || "";
+            if ((infobox.style.display === "none" || /click\/touch/i.test(t)) && Date.now() - t0 > MIN_MS) {
+                ready = true; raise(100); paint();
+            }
+        }
+        new MutationObserver(check).observe(infobox, { attributes: true, childList: true, characterData: true, subtree: true });
+        setInterval(check, 500);
+        function key(e) { if (revealed && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); go.click(); } }
+        addEventListener("keydown", key);
+        // the click on PLAY is the user gesture the browser needs before it allows sound
+        go.addEventListener("click", function () {
+            if (!revealed || starting) return;
+            starting = true; unlocked = true; try { if (window.MM) window.MM.UME = true; } catch (e) {}
+            go.style.display = "none"; hint.style.display = "none"; statusEl.textContent = "Starting the game…";
+            // keep the loading screen up until the game has actually started drawing, then fade it out
+            var n = 0, iv = setInterval(function () { n++; var c = $("canvas");
+                if ((c && c.width > 100 && infobox.style.display === "none") || n > 200) { clearInterval(iv); setTimeout(finish, 500) } }, 100);
+            var cv2 = $("canvas"); if (cv2 && cv2.focus) cv2.focus();
+        });
+    })();
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Don't Even Bother | Free browser platformer</title>
+<meta name="description" content="Don't Even Bother: Pure Evil Edition. A free browser platformer with 19 levels, invisible spikes and a narrator who does not like you. No download, no sign-up.">
+<meta name="theme-color" content="#0d0a14">
+<meta property="og:title" content="Don't Even Bother: Pure Evil Edition">
+<meta property="og:description" content="19 levels. 3 acts. One narrator who does not like you. Free in your browser.">
+<link rel="icon" type="image/png" href="play/favicon.png">
+<script>document.documentElement.className="js"</script>
+<style>
+:root{--bg:#0d0a14;--bg2:#150f1f;--card:#1a1224;--line:rgba(255,255,255,.1);--cream:#f3ecdf;--mute:#a99db6;--red:#e11d48;--org:#ff8a3d;--shadow:#5e0d22;
+  --disp:"Arial Black","Helvetica Neue",Helvetica,Arial,sans-serif;--body:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--cream);font-family:var(--body);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+img{max-width:100%;display:block}
+.wrap{width:min(1120px,100% - 40px);margin-inline:auto}
+h1,h2,h3{font-family:var(--disp);text-transform:uppercase;line-height:1.02;margin:0;letter-spacing:.01em}
+h2{font-size:clamp(30px,5vw,54px)}
+h3{font-size:18px}
+.eyebrow{font-weight:800;font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--red);margin-bottom:14px}
+.lead{font-size:clamp(16px,1.6vw,19px);color:#cfc5da;max-width:62ch}
+section{padding:clamp(64px,9vw,120px) 0;position:relative}
+.logo{font-family:var(--disp);text-transform:uppercase;color:var(--cream);line-height:.86;text-shadow:.045em .045em 0 var(--shadow);letter-spacing:.005em}
+.logo span{display:block}
+.logo .a{font-size:1em}.logo .b{font-size:1.66em}
+.logo small{display:block;margin-top:.9em;font:800 max(.2em,10px)/1 var(--body);letter-spacing:.55em;color:var(--red);text-shadow:none}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:16px 34px;border-radius:999px;font:900 15px/1 var(--body);letter-spacing:.2em;text-transform:uppercase;text-decoration:none;border:0;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.btn.main{background:linear-gradient(90deg,#e11d48,#ff8a3d);color:#1a0a14;box-shadow:0 10px 36px rgba(225,29,72,.4)}
+.btn.main:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 16px 44px rgba(255,100,60,.5)}
+.btn.ghost{background:rgba(255,255,255,.08);color:var(--cream);border:1px solid rgba(255,255,255,.22)}
+.btn.ghost:hover{background:rgba(255,255,255,.16)}
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .8s ease,transform .8s ease}
+.reveal.in{opacity:1;transform:none}
+
+/* ---------------- nav ---------------- */
+.nav{position:fixed;inset:0 0 auto;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px max(20px,3vw);transition:background .3s,box-shadow .3s}
+.nav.solid{background:rgba(13,10,20,.88);backdrop-filter:blur(10px);box-shadow:0 1px 0 var(--line)}
+.nav .brand{font:900 15px/1 var(--disp);text-transform:uppercase;text-decoration:none;letter-spacing:.04em;text-shadow:2px 2px 0 var(--shadow)}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0;padding:0}
+.nav ul a{white-space:nowrap;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;text-decoration:none;color:#d8cfe2}
+.nav ul a:hover{color:#fff}
+.nav .btn{padding:11px 22px;font-size:12px}
+@media(max-width:860px){.nav ul{display:none}}
+
+/* ---------------- hero ---------------- */
+.hero{min-height:100svh;padding:0;display:flex;align-items:center;overflow:hidden;isolation:isolate}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%;z-index:-2}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(13,10,20,.94) 0%,rgba(13,10,20,.7) 36%,rgba(13,10,20,0) 66%),linear-gradient(0deg,var(--bg) 0%,transparent 22%)}
+.hero .in{padding:120px 0 90px}
+.hero .logo{font-size:clamp(40px,5.4vw,88px);margin-bottom:.35em}
+.hero p{font-size:clamp(17px,1.8vw,22px);max-width:34ch;color:#e4dbee;margin:26px 0 34px}
+.hero .cta{display:flex;flex-wrap:wrap;gap:14px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
+.chips span{font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.05);color:#d8cfe2}
+.scroll{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:#a99db6;animation:bob 2s infinite}
+@keyframes bob{50%{transform:translate(-50%,6px)}}
+@media(max-width:760px){.hero::before{background:linear-gradient(0deg,rgba(13,10,20,.92) 8%,rgba(13,10,20,.55) 55%,rgba(13,10,20,.2) 100%)}.hero{align-items:flex-end}.hero .in{padding-bottom:70px}}
+
+/* ---------------- game ---------------- */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin:44px 0 56px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px 20px}
+.stat b{display:block;font:900 clamp(34px,4.4vw,52px)/1 var(--disp);color:var(--cream);text-shadow:3px 3px 0 var(--shadow)}
+.stat span{display:block;margin-top:8px;font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--mute)}
+.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.act{position:relative;padding:28px;border-radius:12px;border:1px solid var(--line);overflow:hidden;min-height:230px;background:var(--card)}
+.act::before{content:"";position:absolute;inset:0;opacity:.9;background:var(--g)}
+.act>*{position:relative}
+.act em{font:800 11px/1 var(--body);letter-spacing:.3em;text-transform:uppercase;font-style:normal;color:#ffd0da}
+.act h3{font-size:28px;margin:14px 0 10px}
+.act p{margin:0;color:#e4dbee;font-size:15px}
+.act .lv{margin-top:18px;font-size:11px;letter-spacing:.2em;font-weight:800;text-transform:uppercase;color:#ffb98a}
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:40px}
+.lvl{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:8px;transition:border-color .2s,transform .2s}
+.lvl:hover{border-color:rgba(255,138,61,.6);transform:translateY(-2px)}
+.lvl i{font:900 20px/1 var(--disp);font-style:normal;color:var(--red);min-width:30px}
+.lvl b{display:block;font-size:14px;letter-spacing:.06em;text-transform:uppercase}
+.lvl span{display:block;font-size:12px;color:var(--mute);margin-top:3px;text-transform:uppercase;letter-spacing:.06em}
+@media(max-width:860px){.acts{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}}
+
+/* ---------------- screens ---------------- */
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:40px}
+.shot{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/10;background:#150f1f}
+.shot img{width:100%;height:100%;object-fit:cover;transition:transform .6s}
+.shot:hover img{transform:scale(1.05)}
+.shot figcaption{position:absolute;left:0;right:0;bottom:0;padding:34px 16px 12px;font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;background:linear-gradient(0deg,rgba(13,6,20,.92),transparent)}
+.shot{margin:0}
+
+/* ---------------- how to play ---------------- */
+.how{background:linear-gradient(180deg,var(--bg),var(--bg2))}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:44px 0}
+.step{padding:26px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.step i{font:900 44px/1 var(--disp);font-style:normal;color:var(--red);text-shadow:3px 3px 0 var(--shadow)}
+.step h3{margin:14px 0 8px}
+.step p{margin:0;color:#cfc5da;font-size:15px}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.key{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.key>span{font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+.key div{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+kbd{font:800 12px/1 var(--body);padding:8px 10px;min-width:34px;text-align:center;background:#241a30;border:1px solid #3d2d4b;border-bottom-width:3px;border-radius:6px;color:var(--cream)}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:40px}
+.tip{padding:20px;border-left:3px solid var(--red);background:var(--card);border-radius:0 10px 10px 0}
+.tip b{display:block;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}
+.tip p{margin:0;font-size:14px;color:#cfc5da}
+@media(max-width:860px){.steps{grid-template-columns:1fr}}
+
+/* ---------------- characters ---------------- */
+.chars{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-top:44px}
+.char{padding:18px 14px 16px;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:12px;transition:transform .2s,border-color .2s}
+.char:hover{transform:translateY(-4px);border-color:rgba(255,138,61,.6)}
+.char canvas{width:130px;height:150px;margin:0 auto}
+.char b{display:block;margin-top:8px;font:900 13px/1.2 var(--disp);letter-spacing:.06em;text-transform:uppercase}
+.char span{display:block;margin-top:6px;font-size:12px;color:var(--mute)}
+.char.start{border-color:rgba(225,29,72,.6)}
+
+/* ---------------- story ---------------- */
+.story{background:radial-gradient(ellipse at 20% 0%,rgba(225,29,72,.14),transparent 50%),var(--bg2)}
+.story .grid{display:grid;grid-template-columns:.9fr 1.4fr;gap:clamp(30px,6vw,80px);align-items:start}
+.story .grid>div:first-child{position:sticky;top:96px}
+.story .tl{display:grid;gap:0;margin-top:30px}
+.story .tl div{padding:0 0 18px 22px;border-left:2px solid #3a2b45;position:relative;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+.story .tl div::before{content:"";position:absolute;left:-7px;top:2px;width:12px;height:12px;background:var(--bg2);border:2px solid var(--red);border-radius:50%}
+.story .tl div.now{color:var(--cream)}.story .tl div.now::before{background:var(--red)}
+.story article p{font-size:clamp(16px,1.5vw,18px);color:#d8cfe2;margin:0 0 20px}
+.story article h3{font-size:clamp(20px,2.4vw,26px);margin:38px 0 14px;color:var(--cream)}
+.story article h3:first-child{margin-top:0}
+.story blockquote{margin:30px 0;padding:6px 0 6px 22px;border-left:3px solid var(--org);font:italic 600 clamp(18px,2vw,23px)/1.45 var(--body);color:var(--cream)}
+.build{margin-top:34px;padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.build h3{font-size:14px;letter-spacing:.2em;color:var(--org);margin-bottom:14px}
+.build ul{margin:0;padding:0;list-style:none;display:grid;gap:10px}
+.build li{padding-left:22px;position:relative;font-size:15px;color:#d8cfe2}
+.build li::before{content:"";position:absolute;left:0;top:9px;width:8px;height:8px;background:var(--red)}
+@media(max-width:860px){.story .grid{grid-template-columns:1fr}.story .grid>div:first-child{position:static}}
+
+/* ---------------- faq / footer ---------------- */
+.faq details{border-bottom:1px solid var(--line);padding:20px 4px}
+.faq summary{cursor:pointer;font:800 16px/1.3 var(--body);letter-spacing:.04em;list-style:none;display:flex;justify-content:space-between;gap:20px}
+.faq summary::after{content:"+";font-size:24px;line-height:1;color:var(--red)}
+.faq details[open] summary::after{content:"\2212"}
+.faq summary::-webkit-details-marker{display:none}
+.faq p{margin:12px 0 0;color:#cfc5da;max-width:70ch}
+.final{text-align:center;padding:clamp(80px,12vw,150px) 0;background:radial-gradient(ellipse at 50% 100%,rgba(225,29,72,.3),transparent 60%)}
+.final .logo{font-size:clamp(34px,7vw,84px);margin-bottom:34px}
+footer{padding:36px 0;border-top:1px solid var(--line);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);text-align:center}
+
+/* ---------------- loader ---------------- */
+#ld{position:fixed;inset:0;z-index:100;background:#0d0a14;color:var(--cream);overflow:hidden;transition:opacity .9s ease,visibility .9s}
+html:not(.js) #ld{display:none}
+#ld.done{opacity:0;visibility:hidden;pointer-events:none}
+#ld canvas{position:absolute;inset:0;width:100%;height:100%}
+#ld .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,6,16,.88) 0%,rgba(10,6,16,.45) 42%,rgba(10,6,16,0) 70%),linear-gradient(0deg,rgba(10,6,16,.9) 0%,rgba(10,6,16,0) 38%)}
+#ld .pane{position:absolute;left:max(24px,5vw);right:max(24px,5vw);bottom:max(26px,5vh)}
+#ld .logo{font-size:clamp(34px,5.4vw,78px);margin-bottom:clamp(14px,3vh,30px)}
+#ld .card{max-width:min(560px,100%);padding:16px 22px;background:rgba(14,10,22,.62);border-left:3px solid var(--org);border-radius:0 10px 10px 0;backdrop-filter:blur(6px);transition:opacity .4s,transform .4s;min-height:118px}
+#ld .card.swap{opacity:0;transform:translateY(8px)}
+#ld .card b{display:block;font:800 clamp(17px,2vw,22px)/1.25 var(--body)}
+#ld .card p{margin:6px 0 0;font-size:clamp(13px,1.4vw,16px);color:#ece4f3;line-height:1.45}
+#ld .card small{display:block;margin-top:6px;font-size:13px;color:var(--mute)}
+#ld .status{margin:clamp(14px,3vh,28px) 0 30px;font-size:clamp(15px,1.8vw,22px);font-weight:600;min-height:1.4em}
+#ld .bar{position:relative;height:4px;background:rgba(255,255,255,.22);border-radius:2px}
+#ld .fill{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);background:var(--org);border-radius:2px}
+#ld .blank{position:absolute;top:-23px;left:0;width:20px;height:20px;border-radius:5px 5px 4px 4px;background:#f6efe2;box-shadow:inset 0 -5px 0 #ddd3c2;margin-left:-10px;animation:hop .55s infinite cubic-bezier(.3,.8,.5,1)}
+#ld .blank::before{content:"";position:absolute;left:4px;top:5px;width:3px;height:7px;background:#100a16;box-shadow:8px 0 0 #100a16}
+#ld .blank::after{content:"";position:absolute;left:-1px;right:-1px;top:12px;height:4px;background:var(--red)}
+@keyframes hop{45%{transform:translateY(-9px)}}
+#ld .foot{display:flex;justify-content:space-between;align-items:flex-end;margin-top:22px;font-size:14px;color:#d8cfe2}
+#ld .pct{font:900 clamp(34px,4.6vw,58px)/.9 var(--disp);color:var(--cream);font-variant-numeric:tabular-nums}
+#ld .pct::after{content:"%"}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}#ld .blank,.scroll{animation:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<!-- ============ nav ============ -->
+<header class="nav" id="nav">
+  <a class="brand" href="#top">Don't Even Bother</a>
+  <ul>
+    <li><a href="#game">The game</a></li><li><a href="#how">How to play</a></li><li><a href="#chars">Characters</a></li><li><a href="#story">The story</a></li><li><a href="#faq">FAQ</a></li>
+  </ul>
+  <a class="btn main" href="play/">Play free</a>
+</header>
+
+<main>
+<!-- ============ hero ============ -->
+<section class="hero" id="top">
+  <canvas id="hero-cv" aria-hidden="true"></canvas>
+  <div class="wrap"><div class="in">
+    <h1 class="logo" aria-label="Don't Even Bother, Pure Evil Edition"><span class="a">Don't Even</span><span class="b">Bother</span><small>Pure Evil Edition</small></h1>
+    <p>A free platformer in your browser that really, really doesn't want you to reach the door.</p>
+    <div class="cta"><a class="btn main" href="play/">Play free</a><a class="btn ghost" href="#how">How to play</a></div>
+    <div class="chips"><span>Free</span><span>No download</span><span>No sign-up</span><span>Best on a laptop</span></div>
+  </div></div>
+  <div class="scroll">Scroll</div>
+</section>
+
+<!-- ============ the game ============ -->
+<section id="game"><div class="wrap">
+  <div class="reveal"><div class="eyebrow">The game</div>
+  <h2>Nineteen levels.<br>One narrator who<br>does not like you.</h2>
+  <p class="lead" style="margin-top:22px">You play a small cream-coloured block in a red scarf. Walk right, reach the door. Simple, until the floor lies, the lights go out, the walls turn out to be suggestions and a voice keeps commenting on how you're doing. Every trap is hand-placed and fair. It just doesn't feel that way.</p></div>
+  <div class="stats reveal">
+    <div class="stat"><b>19</b><span>Levels</span></div><div class="stat"><b>3</b><span>Acts</span></div>
+    <div class="stat"><b>2</b><span>Modes: Normal &amp; Brutal</span></div><div class="stat"><b>14</b><span>Characters</span></div>
+    <div class="stat"><b>12</b><span>Awards</span></div><div class="stat"><b>1</b><span>Bot that beat them all</span></div>
+  </div>
+  <div class="acts reveal" id="acts"></div>
+  <div class="levels reveal" id="levels"></div>
+</div></section>
+
+<!-- ============ screens ============ -->
+<section id="screens" style="padding-top:0"><div class="wrap">
+  <div class="reveal"><div class="eyebrow">Straight from the game</div><h2>This is what it looks like</h2></div>
+  <div class="shots reveal">
+    <figure class="shot"><img src="play/poster/p2.png" alt="Level 1, First Doubt: purple mountains at dusk, spikes and a portal" loading="lazy"><figcaption>01 · First Doubt</figcaption></figure>
+    <figure class="shot"><img src="play/poster/p1.png" alt="The main menu with the Don't Even Bother title and The Blank character" loading="lazy"><figcaption>The main menu</figcaption></figure>
+    <figure class="shot"><img src="play/poster/p3.png" alt="The mode screen asking how do you want to suffer" loading="lazy"><figcaption>How do you want to suffer?</figcaption></figure>
+    <figure class="shot"><img src="play/poster/p4.png" alt="Act I title card: The Warm-Up" loading="lazy"><figcaption>Act I · The Warm-Up</figcaption></figure>
+  </div>
+</div></section>
+
+<!-- ============ how to play ============ -->
+<section class="how" id="how"><div class="wrap">
+  <div class="reveal"><div class="eyebrow">How to play</div><h2>Three steps.<br>Then a lot of dying.</h2></div>
+  <div class="steps reveal">
+    <div class="step"><i>1</i><h3>Open it</h3><p>Use a laptop or desktop with a keyboard. The first visit downloads the game once, so give it a moment. After that it opens fast.</p></div>
+    <div class="step"><i>2</i><h3>Press Play</h3><p>Pick Campaign for the 19 levels, or Race the Bot to beat the solver's time. Normal or Brutal: your call. Brutal keeps its own progress.</p></div>
+    <div class="step"><i>3</i><h3>Reach the door</h3><p>Walk right, find the exit portal, don't trust anything. Die, learn, go again. The checkpoint restart is one key away.</p></div>
+  </div>
+  <div class="keys reveal">
+    <div class="key"><span>Move</span><div><kbd>←</kbd><kbd>→</kbd><kbd>A</kbd><kbd>D</kbd></div></div>
+    <div class="key"><span>Jump</span><div><kbd>Space</kbd><kbd>↑</kbd><kbd>W</kbd><kbd>Z</kbd><kbd>K</kbd></div></div>
+    <div class="key"><span>Restart from checkpoint</span><div><kbd>R</kbd></div></div>
+    <div class="key"><span>Pause</span><div><kbd>Esc</kbd><kbd>P</kbd></div></div>
+    <div class="key"><span>Menus: choose / back</span><div><kbd>Enter</kbd><kbd>Esc</kbd></div></div>
+    <div class="key"><span>Also works with</span><div><kbd>Gamepad</kbd><kbd>Touch</kbd></div></div>
+  </div>
+  <div class="tips reveal">
+    <div class="tip"><b>Walk right. How hard can it be?</b><p>Level 1 says this. It's the last honest thing anyone tells you.</p></div>
+    <div class="tip"><b>The narrator is watching</b><p>It remembers where you keep dying, and it will bring it up.</p></div>
+    <div class="tip"><b>Spite is a currency</b><p>Every death earns it. Spend it on characters nobody needs but everybody wants.</p></div>
+    <div class="tip"><b>Race the Bot</b><p>A solver bot can beat every level. Try to beat its time on any of them.</p></div>
+    <div class="tip"><b>Headphones help</b><p>All the sound and music is made in code. It's worth hearing.</p></div>
+    <div class="tip"><b>Content note</b><p>Flashing lights and screen shake. Both can be turned down in Settings.</p></div>
+  </div>
+  <div style="margin-top:46px" class="reveal"><a class="btn main" href="play/">Play free</a></div>
+</div></section>
+
+<!-- ============ characters ============ -->
+<section id="chars"><div class="wrap">
+  <div class="reveal"><div class="eyebrow">Characters</div><h2>Fourteen ways to look<br>like you're about to die</h2>
+  <p class="lead" style="margin-top:22px">You start as The Blank. The other thirteen are earned, or bought with spite. A costume never changes the rules: every character is drawn inside the exact same box the game collides with, so what you see is what can hurt you.</p></div>
+  <div class="chars reveal" id="chars-grid"></div>
+</div></section>
+
+<!-- ============ story ============ -->
+<section class="story" id="story"><div class="wrap"><div class="grid">
+  <div class="reveal"><div class="eyebrow">The story</div><h2>How a bad<br>college project<br>became my first<br>real game</h2>
+    <div class="tl"><div>College project</div><div>Months of silence</div><div class="now">The comeback</div><div>Next games</div></div></div>
+  <article class="reveal">
+    <h3>I'm a gamer first</h3>
+    <p>I've loved games for as long as I can remember. I've spent more hours inside other people's worlds than I'd like to admit, and somewhere along the way I started wondering how any of it was actually made.</p>
+    <p>Then, in college, a project came along. We had to build something, and most people picked something safe. I picked a game.</p>
+    <h3>It was really bad</h3>
+    <p>I'll be honest: the first version was bad. The movement felt wrong, the levels were boring, and the whole thing held together mostly out of stubbornness. It did its job for the project. It was not something I was proud of, and I didn't show it to anyone I wanted to impress.</p>
+    <p>So I closed the folder and moved on.</p>
+    <h3>Then it just sat there</h3>
+    <p>For a few months, nothing. Other work took over. The game stayed exactly where I'd left it, half-finished, quietly judging me from a directory I never opened.</p>
+    <blockquote>It wasn't a school assignment anymore. It was a game I wanted to exist.</blockquote>
+    <h3>One day I opened it again</h3>
+    <p>I can't tell you what changed. Gaming is my passion, and one day I picked the project back up and asked a different question: what would this be if I built it like a real game, not like homework?</p>
+    <p>So I rebuilt it properly. I fixed the movement until it felt right. I wrote levels that lie to you on purpose and learned how to make a trap feel fair even when it kills you. I gave the game a narrator who is quietly disappointed in you, and a red-scarfed block you can't help rooting for.</p>
+    <p>It grew into nineteen levels in three acts, two difficulties, fourteen characters, a Spite currency, awards, and a bot you can race.</p>
+    <div class="build"><h3>Behind the build</h3><ul>
+      <li>Written in Python with pygame-ce, and packaged for the browser with Pygbag.</li>
+      <li>There are no image or sound files. Every picture, sound effect and music track is generated by code.</li>
+      <li>The rules have no randomness, so every trap is the same every time.</li>
+      <li>A solver bot plays the game itself. It cleared all 19 levels on Normal and all 19 on Brutal, proving each one can be beaten.</li>
+      <li>Around 8,000 lines of code and an automated test suite keep it all honest.</li>
+    </ul></div>
+    <h3>And I'm not done</h3>
+    <p>This is the first game I've actually finished, and it taught me more than any class could. I'm going to keep building games, bigger and better, and every one of them will start the same way: a gamer who can't stop wondering what he could make.</p>
+    <p>If you play this one, die a lot, and laugh at least once, it worked.</p>
+    <p style="margin-top:30px"><a class="btn main" href="play/">Play the game</a></p>
+  </article>
+</div></div></section>
+
+<!-- ============ faq ============ -->
+<section class="faq" id="faq"><div class="wrap" style="max-width:860px">
+  <div class="reveal"><div class="eyebrow">FAQ</div><h2>Questions nobody asked</h2></div>
+  <div class="reveal" style="margin-top:34px">
+    <details><summary>Is it really free?</summary><p>Yes. No download, no account, no ads, no sign-up. Open the page and play.</p></details>
+    <details><summary>What do I need to play?</summary><p>A laptop or desktop with a recent browser and a keyboard. Touch controls and gamepad support exist, but a keyboard is the proper way to suffer.</p></details>
+    <details><summary>Why does the first load take a moment?</summary><p>The whole game, including its music and sound, is downloaded once. Next time it opens much faster.</p></details>
+    <details><summary>Will my progress be saved?</summary><p>The game keeps its save in your browser on your device, so there's no account. Clearing your site data for this page will reset it.</p></details>
+    <details><summary>What's the difference between Normal and Brutal?</summary><p>Brutal is the harder setting, and it keeps its own separate progress, so playing one never touches the other.</p></details>
+    <details><summary>Is there anything I should be careful about?</summary><p>The game has flashing lights and screen shake. You can turn both down in Settings. Headphones are recommended.</p></details>
+    <details><summary>Will there be more games?</summary><p>Yes. This is the first, not the last.</p></details>
+  </div>
+</div></section>
+
+<section class="final"><div class="wrap reveal">
+  <div class="logo"><span class="a">Don't Even</span><span class="b">Bother</span></div>
+  <a class="btn main" href="play/">Play free</a>
+</div></section>
+</main>
+
+<footer><div class="wrap">A LazyHunter7 game · Don't Even Bother · Pure Evil Edition · v2.0.0 · Made with Python, pygame-ce &amp; Pygbag</div></footer>
+
+<script>
+/* =====================================================================
+   Data
+   ===================================================================== */
+var ACTS = [
+  { e: "Act I · levels 1 to 10", t: "The Warm-Up", p: "Ten hand-built levels that teach you one thing: nothing here is what it looks like.", l: "The Ruins", g: "linear-gradient(135deg,#4a2447,#a54a4a 80%,#e0864a)" },
+  { e: "Act II · levels 11 to 18", t: "The Gauntlet", p: "Eight long, fast runs. Saws, springs, rhythm and a level you can't see. Hope you memorised Act I.", l: "The Gauntlet", g: "linear-gradient(135deg,#1c1030,#5a1f4d 70%,#c21f4a)" },
+  { e: "Act III · level 19", t: "The Climb", p: "One giant vertical tower. Every step up is a step you can lose.", l: "The Climb", g: "linear-gradient(135deg,#0d0c1c,#2b1f55 70%,#6b3a9a)" }];
+var LEVELS = [["First Doubt", "Walk right. How hard can it be?"], ["Trust Issues", "The floor has trust issues"], ["Look Up", "Nothing up there. Promise."], ["Dead End", "Some walls are just suggestions"],
+  ["Lights Out", "Who turned off the lights?"], ["Wrong Way", "Left is right. Right is wrong."], ["Runaway", "Just grab the door"], ["Rising Tension", "Up is the only way out"],
+  ["Deja Vu", "Haven't we been here before?"], ["The Final Lie", "Everything. All at once."], ["Warm Welcome", "You thought that was hard?"], ["Saw Mill", "Everything spins. Everything cuts."],
+  ["Glass Floor", "Don't stop. Don't ever stop."], ["Pinball", "Boing. Splat. Boing. Splat."], ["Clockwork", "Everything here has a rhythm. You don't."],
+  ["Whiteout", "You won't see this one coming. Literally."], ["Overclocked", "Left is right and fast is slow."], ["The Gauntlet", "Everything. Again. Longer."], ["The Climb", "Every step up is a step you can lose."]];
+/* characters, read from the game's own cosmetics table: [name, body, scarf, outline, eyes, sole, radius, look, crest, crestColour, belt, how] */
+var SKINS = [
+  ["The Blank", [250,244,232], [226,40,60], [18,14,24], [14,11,20], [222,214,200], 8, "dots", null, null, 1, "You start with this one."],
+  ["The Regular", [198,196,205], [150,150,160], [18,14,24], [14,11,20], [170,168,176], 8, "tired", "cap", null, 1, "Die 100 times."],
+  ["Gravedigger", [96,100,110], [60,180,120], [18,14,24], [14,11,20], [70,74,84], 1, "x", "cap", null, 1, "Die 1,000 times."],
+  ["Untouchable", [255,252,240], [255,204,77], [18,14,24], [14,11,20], [240,232,200], 13, "calm", "halo", null, 1, "Clear any level without dying."],
+  ["Gullible", [232,210,160], [196,120,60], [18,14,24], [14,11,20], [210,188,140], 11, "wide", null, null, 0, "Die to ten fake doors."],
+  ["Connoisseur", [210,170,235], [120,60,180], [18,14,24], [14,11,20], [185,150,205], 9, "monocle", "tophat", null, 1, "Die to every cause at least once."],
+  ["Masochist", [60,58,70], [214,36,56], [18,14,24], [255,92,110], [44,42,52], 3, "angry", "horns", null, 1, "Finish Act I on Brutal."],
+  ["Summiteer", [170,215,255], [255,255,255], [18,14,24], [14,11,20], [140,185,225], 10, "goggles", "bobble", null, 1, "Reach the top of the Climb."],
+  ["The Ghost", [200,225,235], [120,200,220], [40,70,90], [40,70,90], [170,200,212], 13, "ring", null, null, 0, "Beat the bot's time on any level."],
+  ["Completionist", [255,215,90], [60,40,10], [18,14,24], [14,11,20], [226,186,70], 6, "calm", "crown", null, 1, "Finish every level in both modes."],
+  ["Ember", [255,140,70], [120,30,20], [18,14,24], [14,11,20], [226,118,56], 7, "angry", "flame", [255,214,90], 1, "Bought with spite."],
+  ["Frost", [190,235,255], [70,130,200], [18,14,24], [14,11,20], [160,205,228], 0, "calm", "shard", null, 1, "Bought with spite."],
+  ["Neon", [255,70,200], [60,240,220], [18,14,24], [14,11,20], [220,60,175], 4, "visor", "antenna", null, 1, "Bought with spite."],
+  ["Void", [28,26,38], [90,60,160], [8,6,14], [150,110,255], [20,18,28], 13, "cyclops", null, null, 0, "Bought with spite."]];
+
+/* =====================================================================
+   Drawing: characters (same recipe as the game: body, outline, sole, scarf belt, eyes, crest)
+   ===================================================================== */
+function rgb(c) { return "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")"; }
+function rr(ctx, x, y, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function drawSkin(ctx, k, cx, baseY, h, blink) {
+  var s = h / 34, w = 26 * s, x = cx - w / 2, y = baseY - h, r = k[6] * s, body = rgb(k[1]), scarf = rgb(k[2]), eyes = rgb(k[4]), cc = k[9] ? rgb(k[9]) : scarf, i;
+  ctx.save();
+  rr(ctx, x - 2 * s, y - 2 * s, w + 4 * s, h + 4 * s, r + s); ctx.fillStyle = rgb(k[3]); ctx.fill();
+  rr(ctx, x, y, w, h, r); ctx.fillStyle = body; ctx.fill();
+  ctx.save(); rr(ctx, x, y, w, h, r); ctx.clip();
+  ctx.fillStyle = rgb(k[5]); ctx.fillRect(x, y + h - 7 * s, w, 7 * s);
+  if (k[10]) { ctx.fillStyle = scarf; ctx.fillRect(x, y + h * .5, w, 5 * s); }
+  ctx.restore();
+  /* crest */
+  var cr = k[8], cxm = cx; ctx.fillStyle = cc; ctx.strokeStyle = cc; ctx.lineWidth = 2 * s;
+  if (cr === "cap") { ctx.beginPath(); ctx.ellipse(cxm, y + 2 * s, w * .42, 7 * s, 0, Math.PI, 0); ctx.fill(); ctx.fillRect(cxm - w * .62, y + 1 * s, w * 1.24, 4 * s); }
+  else if (cr === "halo") { ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.ellipse(cxm, y - 7 * s, w * .38, 3.2 * s, 0, 0, 7); ctx.stroke(); }
+  else if (cr === "tophat") { ctx.fillRect(cxm - w * .6, y - 1 * s, w * 1.2, 3 * s); ctx.fillRect(cxm - w * .34, y - 13 * s, w * .68, 13 * s); ctx.fillStyle = "#14101c"; ctx.fillRect(cxm - w * .34, y - 5 * s, w * .68, 3 * s); }
+  else if (cr === "horns") { ctx.beginPath(); ctx.moveTo(x + 1 * s, y + 1 * s); ctx.lineTo(x + 3 * s, y - 10 * s); ctx.lineTo(x + 9 * s, y + 1 * s); ctx.fill(); ctx.beginPath(); ctx.moveTo(x + w - 1 * s, y + 1 * s); ctx.lineTo(x + w - 3 * s, y - 10 * s); ctx.lineTo(x + w - 9 * s, y + 1 * s); ctx.fill(); }
+  else if (cr === "bobble") { ctx.fillRect(cxm - 1.2 * s, y - 4 * s, 2.4 * s, 5 * s); ctx.beginPath(); ctx.arc(cxm, y - 6 * s, 4.5 * s, 0, 7); ctx.fillStyle = "#fff"; ctx.fill(); }
+  else if (cr === "crown") { ctx.beginPath(); ctx.moveTo(x + 2 * s, y + 1 * s); ctx.lineTo(x + 2 * s, y - 9 * s); ctx.lineTo(x + 8 * s, y - 3 * s); ctx.lineTo(cxm, y - 11 * s); ctx.lineTo(x + w - 8 * s, y - 3 * s); ctx.lineTo(x + w - 2 * s, y - 9 * s); ctx.lineTo(x + w - 2 * s, y + 1 * s); ctx.fill(); }
+  else if (cr === "flame") { var fl = [[-6, 9], [0, 14], [6, 9]]; for (i = 0; i < 3; i++) { ctx.fillStyle = i === 1 ? "#ffd65a" : "#ff8a3d"; ctx.beginPath(); ctx.moveTo(cxm + (fl[i][0] - 4) * s, y + 1 * s); ctx.lineTo(cxm + fl[i][0] * s, y - fl[i][1] * s); ctx.lineTo(cxm + (fl[i][0] + 4) * s, y + 1 * s); ctx.fill(); } }
+  else if (cr === "shard") { ctx.beginPath(); ctx.moveTo(cxm - 5 * s, y + 1 * s); ctx.lineTo(cxm, y - 14 * s); ctx.lineTo(cxm + 5 * s, y + 1 * s); ctx.fillStyle = "#cfeeff"; ctx.fill(); }
+  else if (cr === "antenna") { ctx.beginPath(); ctx.moveTo(cxm, y); ctx.lineTo(cxm, y - 10 * s); ctx.stroke(); ctx.beginPath(); ctx.arc(cxm, y - 11 * s, 3 * s, 0, 7); ctx.fill(); }
+  /* eyes */
+  var l = k[7], e1 = x + 6 * s, e2 = x + 16 * s, ey = y + 8 * s; ctx.fillStyle = eyes; ctx.strokeStyle = eyes; ctx.lineWidth = 1.8 * s;
+  if (blink && l !== "visor" && l !== "cyclops") { ctx.fillRect(e1, ey + 5 * s, 4 * s, 1.6 * s); ctx.fillRect(e2, ey + 5 * s, 4 * s, 1.6 * s); }
+  else if (l === "dots") { ctx.fillRect(e1, ey, 4 * s, 8 * s); ctx.fillRect(e2, ey, 4 * s, 8 * s); }
+  else if (l === "tired") { ctx.fillRect(e1, ey + 3 * s, 4 * s, 4 * s); ctx.fillRect(e2, ey + 3 * s, 4 * s, 4 * s); ctx.fillRect(e1 - 1 * s, ey + 2 * s, 6 * s, 1.5 * s); ctx.fillRect(e2 - 1 * s, ey + 2 * s, 6 * s, 1.5 * s); }
+  else if (l === "x") { [e1, e2].forEach(function (ex) { ctx.beginPath(); ctx.moveTo(ex - 1 * s, ey + 1 * s); ctx.lineTo(ex + 5 * s, ey + 7 * s); ctx.moveTo(ex + 5 * s, ey + 1 * s); ctx.lineTo(ex - 1 * s, ey + 7 * s); ctx.stroke(); }); }
+  else if (l === "calm") { ctx.beginPath(); ctx.arc(e1 + 2 * s, ey + 5 * s, 3 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.beginPath(); ctx.arc(e2 + 2 * s, ey + 5 * s, 3 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+  else if (l === "wide") { [e1, e2].forEach(function (ex) { ctx.beginPath(); ctx.arc(ex + 2 * s, ey + 4 * s, 3.6 * s, 0, 7); ctx.fill(); }); }
+  else if (l === "monocle") { ctx.fillRect(e1, ey, 4 * s, 8 * s); ctx.fillRect(e2, ey + 1 * s, 4 * s, 7 * s); ctx.strokeStyle = "#e0b04a"; ctx.beginPath(); ctx.arc(e2 + 2 * s, ey + 4 * s, 5.4 * s, 0, 7); ctx.stroke(); }
+  else if (l === "angry") { ctx.fillRect(e1, ey + 2 * s, 4 * s, 6 * s); ctx.fillRect(e2, ey + 2 * s, 4 * s, 6 * s); ctx.beginPath(); ctx.moveTo(e1 - 2 * s, ey - 1 * s); ctx.lineTo(e1 + 5 * s, ey + 2 * s); ctx.moveTo(e2 + 6 * s, ey - 1 * s); ctx.lineTo(e2 - 1 * s, ey + 2 * s); ctx.stroke(); }
+  else if (l === "goggles") { ctx.fillStyle = "#bfe8ff"; [e1, e2].forEach(function (ex) { ctx.beginPath(); ctx.arc(ex + 2 * s, ey + 4 * s, 5 * s, 0, 7); ctx.fill(); ctx.strokeStyle = "#1a1220"; ctx.stroke(); ctx.fillStyle = eyes; ctx.fillRect(ex + .5 * s, ey + 2 * s, 3 * s, 4 * s); ctx.fillStyle = "#bfe8ff"; }); }
+  else if (l === "ring") { [e1, e2].forEach(function (ex) { ctx.beginPath(); ctx.arc(ex + 2 * s, ey + 4 * s, 3.6 * s, 0, 7); ctx.stroke(); }); }
+  else if (l === "visor") { ctx.fillStyle = scarf; ctx.fillRect(x + 2 * s, ey, w - 4 * s, 6 * s); ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillRect(x + 4 * s, ey + 1 * s, w - 8 * s, 1.5 * s); }
+  else if (l === "cyclops") { ctx.beginPath(); ctx.arc(cx, ey + 4 * s, 5.2 * s, 0, 7); ctx.fill(); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(cx, ey + 4 * s, 1.8 * s, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+
+/* =====================================================================
+   Drawing: the game's world (sunset, purple mountains, moon, orange-edged ground, spikes, portal, blob)
+   ===================================================================== */
+function hash(n) { n = Math.sin(n * 127.1) * 43758.5453; return n - Math.floor(n); }
+function makeScene(cv) {
+  var ctx = cv.getContext("2d"), W = 0, H = 0, dpr = 1, u = 1, raf = 0, run = false, t0 = performance.now(), stars = [], i;
+  for (i = 0; i < 150; i++) stars.push({ x: hash(i + 1), y: hash(i + 77) * .6, s: .6 + hash(i + 9) * 1.5, p: hash(i + 33) * 6.28 });
+  function size() { var r = cv.getBoundingClientRect(); dpr = Math.min(window.devicePixelRatio || 1, 2); W = r.width; H = r.height; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); u = Math.max(.45, Math.min(H / 720, W / 640)); }
+  function ridge(x, base, amp, ph) { return base - amp * (.55 + .3 * Math.sin(x * .004 + ph) + .2 * Math.sin(x * .011 + ph * 1.3 + 1) + .1 * Math.sin(x * .023 + ph * .7)); }
+  function draw(t) {
+    if (!W) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var narrow = W < 820, gy = Math.round(H * (narrow ? .34 : .8)), g = ctx.createLinearGradient(0, 0, 0, gy);
+    g.addColorStop(0, "#1f1233"); g.addColorStop(.42, "#4a2447"); g.addColorStop(.78, "#a14a50"); g.addColorStop(1, "#e0864a");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    for (i = 0; i < stars.length; i++) { var q = stars[i]; ctx.globalAlpha = .35 + .5 * Math.abs(Math.sin(t * .8 + q.p)); ctx.fillStyle = "#ffe9d6"; ctx.fillRect(q.x * W, q.y * gy, q.s * u, q.s * u); }
+    ctx.globalAlpha = 1;
+    var mx = W * (narrow ? .78 : .72), my = gy * .22, mr = 62 * u, mg = ctx.createRadialGradient(mx, my, mr * .4, mx, my, mr * 3.6);
+    mg.addColorStop(0, "rgba(236,192,184,.4)"); mg.addColorStop(1, "rgba(236,192,184,0)");
+    ctx.fillStyle = mg; ctx.fillRect(mx - mr * 3.6, my - mr * 3.6, mr * 7.2, mr * 7.2); ctx.fillStyle = "#ecc0b8"; ctx.beginPath(); ctx.arc(mx, my, mr, 0, 7); ctx.fill();
+    var lay = [[.62, "#7a436f", 8, .38], [.74, "#55295f", 16, .3], [.86, "#37193f", 28, .22]], l, x, dx;
+    for (l = 0; l < 3; l++) { var L = lay[l]; dx = t * L[2]; ctx.fillStyle = L[1]; ctx.beginPath(); ctx.moveTo(0, gy + 2);
+      for (x = 0; x <= W + 10; x += 10) ctx.lineTo(x, ridge(x + dx, gy - H * (.04 + l * .0), H * L[3], 1.3 + l * 1.7) - (2 - l) * H * .05 + H * .08 * (l === 2 ? 0 : 0)); ctx.lineTo(W, gy + 2); ctx.closePath(); ctx.fill(); }
+    /* ground */
+    ctx.fillStyle = "#583a4e"; ctx.fillRect(0, gy, W, H - gy);
+    ctx.fillStyle = "#ec9f5c"; ctx.fillRect(0, gy, W, 5 * u);
+    for (x = 0; x < W; x += 9 * u) { var hh = hash(Math.floor(x / u) + 3); if (hh > .45) { ctx.fillStyle = hh > .8 ? "#ffcf8a" : "#d8823f"; ctx.fillRect(x, gy + 5 * u, 3 * u, (2 + hh * 5) * u); } }
+    for (i = 0; i < 260; i++) { var px = hash(i + 5) * W, py = gy + 12 * u + hash(i + 50) * (H - gy - 12 * u); ctx.fillStyle = hash(i) > .5 ? "#6d4962" : "#3d2838"; ctx.fillRect(px, py, (3 + hash(i + 9) * 7) * u, (2 + hash(i + 19) * 3) * u); }
+    /* spikes: silver with red tips */
+    var sx = W * (narrow ? .04 : .81), n, sw = 26 * u, sh = 36 * u;
+    for (n = 0; n < 4; n++) { var bx = sx + n * sw; ctx.fillStyle = "#cfccd9"; ctx.beginPath(); ctx.moveTo(bx, gy); ctx.lineTo(bx + sw / 2, gy - sh); ctx.lineTo(bx + sw, gy); ctx.fill(); ctx.fillStyle = "#8f8ca0"; ctx.beginPath(); ctx.moveTo(bx + sw / 2, gy - sh); ctx.lineTo(bx + sw, gy); ctx.lineTo(bx + sw / 2, gy); ctx.fill(); ctx.fillStyle = "#e0384a"; ctx.beginPath(); ctx.arc(bx + sw / 2, gy - sh + 3 * u, 2.4 * u, 0, 7); ctx.fill(); }
+    /* portal */
+    var pxm = W * (narrow ? .9 : .968), pw = 52 * u, ph = 92 * u;
+    ctx.fillStyle = "#f6c35a"; rr(ctx, pxm - 13 * u, gy - ph - 16 * u, 26 * u, 8 * u, 3 * u); ctx.fill();
+    ctx.fillStyle = "#0c0810"; ctx.beginPath(); ctx.moveTo(pxm - pw / 2, gy); ctx.lineTo(pxm - pw / 2, gy - ph + pw / 2); ctx.arc(pxm, gy - ph + pw / 2, pw / 2, Math.PI, 0); ctx.lineTo(pxm + pw / 2, gy); ctx.fill();
+    ctx.strokeStyle = "#ff8a3d"; ctx.lineWidth = 5 * u; ctx.beginPath(); ctx.ellipse(pxm, gy - ph * .45, 14 * u, 22 * u, 0, 0, 7); ctx.stroke();
+    ctx.strokeStyle = "#c24a2e"; ctx.lineWidth = 3 * u; ctx.beginPath(); ctx.ellipse(pxm, gy - ph * .45, 7 * u, 12 * u, 0, 0, 7); ctx.stroke();
+    /* blob */
+    var bxm = W * (narrow ? .84 : .925), bob = Math.abs(Math.sin(t * 2.2)) * 5 * u;
+    ctx.fillStyle = "#79c56b"; ctx.beginPath(); ctx.ellipse(bxm, gy - 15 * u - bob, 19 * u, 15 * u + bob * .3, 0, Math.PI, 0); ctx.fill(); ctx.fillRect(bxm - 19 * u, gy - 15 * u - bob, 38 * u, 15 * u + bob);
+    ctx.fillStyle = "#2c5a36"; ctx.fillRect(bxm - 12 * u, gy - 24 * u - bob, 6 * u, 4 * u); ctx.fillRect(bxm + 4 * u, gy - 24 * u - bob, 6 * u, 4 * u);
+    ctx.fillStyle = "#14101c"; ctx.fillRect(bxm - 10 * u, gy - 21 * u - bob, 3 * u, 4 * u); ctx.fillRect(bxm + 5 * u, gy - 21 * u - bob, 3 * u, 4 * u);
+    /* characters: the crowd behind, The Blank in front */
+    var xs = narrow ? [.5, .62, .74] : [.605, .68, .755], who = [2, 6, 3], hh2 = [96, 104, 100];
+    for (i = 0; i < 3; i++) drawSkin(ctx, SKINS[[3, 6, 12][i]], W * xs[i] + (narrow ? 0 : 0), gy - 2 * u - Math.abs(Math.sin(t * 1.6 + i * 1.7)) * 4 * u, hh2[i] * u, (t + i * 1.3) % 4.2 < .12);
+    var hx = narrow ? W * .3 : W * .525;
+    drawSkin(ctx, SKINS[0], hx, gy + 4 * u - Math.abs(Math.sin(t * 1.9)) * 5 * u, 150 * u, t % 4.6 < .12);
+  }
+  function loop(now) { if (!run) return; draw((now - t0) / 1000); raf = requestAnimationFrame(loop); }
+  window.addEventListener("resize", function () { size(); draw((performance.now() - t0) / 1000); });
+  size();
+  return { start: function () { if (run) return; run = true; size(); raf = requestAnimationFrame(loop); }, stop: function () { run = false; cancelAnimationFrame(raf); }, draw: function () { size(); draw((performance.now() - t0) / 1000); } };
+}
+
+/* =====================================================================
+   Page content built from the data
+   ===================================================================== */
+(function () {
+  var $ = function (i) { return document.getElementById(i); }, h = "";
+  ACTS.forEach(function (a) { h += '<div class="act" style="--g:' + a.g + '"><em>' + a.e + '</em><h3>' + a.t + '</h3><p>' + a.p + '</p><div class="lv">' + a.l + '</div></div>'; });
+  $("acts").innerHTML = h; h = "";
+  LEVELS.forEach(function (l, i) { h += '<div class="lvl"><i>' + (i < 9 ? "0" : "") + (i + 1) + '</i><div><b>' + l[0] + '</b><span>' + l[1] + '</span></div></div>'; });
+  $("levels").innerHTML = h; h = "";
+  SKINS.forEach(function (s, i) { h += '<div class="char' + (i ? "" : " start") + '"><canvas width="260" height="300" data-i="' + i + '"></canvas><b>' + s[0] + '</b><span>' + s[11] + '</span></div>'; });
+  $("chars-grid").innerHTML = h;
+  Array.prototype.forEach.call(document.querySelectorAll(".char canvas"), function (c) { var k = SKINS[+c.dataset.i], x = c.getContext("2d"); drawSkin(x, k, 130, 270, 190, false); });
+})();
+
+/* scroll reveal + nav */
+(function () {
+  var nav = document.getElementById("nav");
+  function sc() { nav.classList.toggle("solid", scrollY > 40); } addEventListener("scroll", sc, { passive: true }); sc();
+  var els = document.querySelectorAll(".reveal");
+  if (!("IntersectionObserver" in window)) { Array.prototype.forEach.call(els, function (e) { e.classList.add("in"); }); return; }
+  var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }); }, { threshold: .12 });
+  Array.prototype.forEach.call(els, function (e) { io.observe(e); });
+})();
+
+/* hero scene: no loading screen on the landing page, it just opens */
+(function () { var hero = makeScene(document.getElementById("hero-cv")); hero.draw(); hero.start(); })();
+</script>
+</body>
+</html>
