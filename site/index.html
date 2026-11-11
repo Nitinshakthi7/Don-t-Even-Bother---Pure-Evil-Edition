@@ -156,6 +156,18 @@ footer{padding:36px 0;border-top:1px solid var(--line);font-size:12px;letter-spa
 .ccard svg{width:32px;height:32px;flex:none;color:var(--org)}
 .ccard b{display:block;font:900 14px/1.2 var(--disp);letter-spacing:.08em;text-transform:uppercase}
 .ccard span{display:block;margin-top:4px;font-size:13px;color:var(--mute);word-break:break-all}
+.cwrap{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;margin-top:34px;align-items:start}
+.cside{display:grid;gap:14px}
+.cform{display:grid;gap:16px;padding:26px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.cform label{display:grid;gap:8px;font:800 12px/1.2 var(--body);letter-spacing:.18em;text-transform:uppercase;color:#d8cfe2}
+.cform label small{font-weight:600;letter-spacing:.06em;text-transform:none;color:var(--mute);margin-left:6px}
+.cform input,.cform textarea{width:100%;padding:14px 16px;background:#110b1a;border:1px solid #3a2b45;border-radius:8px;color:var(--cream);font:500 16px/1.4 var(--body);letter-spacing:0;text-transform:none;resize:vertical}
+.cform input:focus,.cform textarea:focus{outline:none;border-color:var(--org);box-shadow:0 0 0 3px rgba(255,138,61,.2)}
+.cform .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.crow{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.cform .btn:disabled{opacity:.6;cursor:wait;transform:none}
+.cnote{margin:0;font-size:14px;color:var(--mute)}.cnote.ok{color:#8be28b}.cnote.bad{color:#ff7a8a}
+@media(max-width:860px){.cwrap{grid-template-columns:1fr}}
 footer a{color:#d8cfe2;text-decoration:none;margin:0 10px}footer a:hover{color:#fff;text-decoration:underline}
 
 /* ---------------- loader ---------------- */
@@ -314,13 +326,21 @@ html:not(.js) #ld{display:none}
 </div></section>
 
 <!-- ============ contact ============ -->
-<section class="contact" id="contact" style="padding-top:0"><div class="wrap" style="max-width:860px">
+<section class="contact" id="contact" style="padding-top:0"><div class="wrap">
   <div class="reveal"><div class="eyebrow">Say hi</div><h2>Beat a level?<br>Found a bug?<br>Tell me.</h2>
   <p class="lead" style="margin-top:22px">I read everything. Send feedback, tell me which level got you, or just say what you'd like to see in the next game.</p></div>
-  <div class="cards reveal">
-    <a class="ccard" href="https://www.instagram.com/_.nitinshakthi._/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none"/></svg><div><b>Instagram</b><span>@_.nitinshakthi._</span></div></a>
-    <a class="ccard" href="https://www.linkedin.com/in/nitin-m-758342219/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10.5V16M8 7.6v.1M12 16v-5.5M12 12.8c0-1.4 1-2.4 2.3-2.4 1.4 0 2.2 1 2.2 2.6V16"/></svg><div><b>LinkedIn</b><span>Nitin M</span></div></a>
-    <a class="ccard" href="mailto:nitinshakthi7@gmail.com"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7.5 8 6 8-6"/></svg><div><b>Email</b><span>nitinshakthi7@gmail.com</span></div></a>
+  <div class="cwrap reveal">
+    <form class="cform" id="cform" novalidate>
+      <label>Your name<input name="name" required maxlength="80" autocomplete="name"></label>
+      <label>Your email <small>so I can reply</small><input name="email" type="email" required maxlength="120" autocomplete="email"></label>
+      <label>Message<textarea name="message" required rows="6" maxlength="2000"></textarea></label>
+      <input type="checkbox" name="botcheck" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div class="crow"><button class="btn main" type="submit" id="csend">Send message</button><p class="cnote" id="cnote" role="status" aria-live="polite"></p></div>
+    </form>
+    <div class="cside">
+      <a class="ccard" href="https://www.instagram.com/_.nitinshakthi._/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none"/></svg><div><b>Instagram</b><span>@_.nitinshakthi._</span></div></a>
+      <a class="ccard" href="https://www.linkedin.com/in/nitin-m-758342219/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10.5V16M8 7.6v.1M12 16v-5.5M12 12.8c0-1.4 1-2.4 2.3-2.4 1.4 0 2.2 1 2.2 2.6V16"/></svg><div><b>LinkedIn</b><span>Nitin M</span></div></a>
+    </div>
   </div>
 </div></section>
 
@@ -330,7 +350,7 @@ html:not(.js) #ld{display:none}
 </div></section>
 </main>
 
-<footer><div class="wrap">A LazyHunter7 game · Don't Even Bother · Pure Evil Edition · v2.0.0 · Made with Python, pygame-ce &amp; Pygbag<div style="margin-top:14px"><a href="https://www.instagram.com/_.nitinshakthi._/" target="_blank" rel="noopener noreferrer">Instagram</a><a href="https://www.linkedin.com/in/nitin-m-758342219/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a href="mailto:nitinshakthi7@gmail.com">nitinshakthi7@gmail.com</a></div></div></footer>
+<footer><div class="wrap">A LazyHunter7 game · Don't Even Bother · Pure Evil Edition · v2.0.0 · Made with Python, pygame-ce &amp; Pygbag<div style="margin-top:14px"><a href="https://www.instagram.com/_.nitinshakthi._/" target="_blank" rel="noopener noreferrer">Instagram</a><a href="https://www.linkedin.com/in/nitin-m-758342219/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a href="#contact">Contact</a></div></div></footer>
 
 <script>
 /* =====================================================================
@@ -484,6 +504,30 @@ function makeScene(cv) {
 
 /* hero scene: no loading screen on the landing page, it just opens */
 (function () { var hero = makeScene(document.getElementById("hero-cv")); hero.draw(); hero.start(); })();
+</script>
+<script>
+/* contact form: the message is sent through Web3Forms, which forwards it to the site owner's inbox,
+   so the email address never appears on the page */
+(function () {
+  var KEY = "c427248b-7a74-4e47-bc51-cda3536bca97";   /* public form key (not a secret) */
+  var form = document.getElementById("cform"); if (!form) return;
+  var note = document.getElementById("cnote"), btn = document.getElementById("csend"), busy = false;
+  function say(t, c) { note.textContent = t; note.className = "cnote" + (c ? " " + c : ""); }
+  form.addEventListener("submit", function (e) {
+    e.preventDefault(); if (busy) return;
+    var f = new FormData(form), name = (f.get("name") || "").trim(), email = (f.get("email") || "").trim(), msg = (f.get("message") || "").trim();
+    if (!name || !msg) return say("Please add your name and a message.", "bad");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return say("That email doesn't look right, I need it to reply.", "bad");
+    if (KEY.indexOf("HERE") > -1) return say("The contact form isn't switched on yet. Please use Instagram or LinkedIn for now.", "bad");
+    busy = true; btn.disabled = true; say("Sending…");
+    fetch("https://api.web3forms.com/submit", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ access_key: KEY, subject: "Message from the Don't Even Bother site", from_name: name, name: name, email: email, message: msg, botcheck: f.get("botcheck") ? true : "" }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.success) { form.reset(); say("Sent! Thanks, I'll reply to your email.", "ok"); setTimeout(function () { busy = false; btn.disabled = false; }, 8000); }
+        else throw new Error("fail"); })
+      .catch(function () { busy = false; btn.disabled = false; say("Couldn't send that. Please try again, or reach me on Instagram or LinkedIn.", "bad"); });
+  });
+})();
 </script>
 </body>
 </html>
