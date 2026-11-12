@@ -2,38 +2,247 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
 <title>Don't Even Bother | Play</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
-  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-  #game { position: absolute; left: 50%; top: 50%; border: 0; background: #000; transform-origin: 50% 50%; }
+  :root { --col: clamp(104px, 17vw, 176px); --face: #14101c; --paper: #f3ecdf; --gold: #ffcc4d; --blood: #e11d48; --lit: #3a1422; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; touch-action: none;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  /* the game: a fixed 1280x720 frame, scaled by script to fit the space left for it */
+  #game { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; border: 0; background: #000; transform-origin: 0 0; touch-action: none; }
+
+  /* ---------- touch controls: only on phones and tablets, in columns beside the game, never on top of it ---------- */
+  #pad, #rotate, #typer { display: none; }
+  body.touch #pad { display: block; }
+  .side { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;
+    padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .side.l { left: 0; width: calc(var(--col) + env(safe-area-inset-left)); padding-left: calc(8px + env(safe-area-inset-left)); padding-right: 8px; }
+  .side.r { right: 0; width: calc(var(--col) + env(safe-area-inset-right)); padding-right: calc(8px + env(safe-area-inset-right)); padding-left: 8px; align-items: flex-end; }
+  .row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .side.r .row { justify-content: flex-end; }
+  .btn { width: clamp(36px, 10vh, 48px); height: clamp(36px, 10vh, 48px); padding: 0; display: grid; place-items: center; background: var(--face); color: var(--paper);
+    border: 2px solid #8d8399; border-radius: 12px; touch-action: none; cursor: pointer; }
+  .btn svg { width: 58%; height: 58%; display: block; pointer-events: none; }
+  .btn[hidden] { display: none; }
+  .btn.on { background: var(--lit); border-color: var(--gold); color: var(--gold); transform: scale(.94); }
+  #dpad { display: flex; width: 100%; height: clamp(64px, 19vh, 92px); touch-action: none; border-radius: 20px; background: var(--face); border: 2px solid var(--paper); overflow: hidden; }
+  .dh { flex: 1; display: grid; place-items: center; color: var(--paper); }
+  .dh + .dh { border-left: 2px solid #3a3044; }
+  .dh svg { width: 42%; height: 42%; pointer-events: none; }
+  .dh.on { background: var(--lit); color: var(--gold); }
+  #jump { width: min(calc(var(--col) - 20px), 30vh, 124px); aspect-ratio: 1; border-radius: 50%; border: 5px solid var(--blood); background: var(--face); color: var(--paper);
+    display: grid; place-items: center; align-content: center; gap: 2px; touch-action: none; cursor: pointer; padding: 0; font: 900 clamp(12px, 3.4vh, 17px)/1 "Arial Black", Impact, sans-serif; letter-spacing: .08em; }
+  #jump svg { width: 36%; height: 36%; pointer-events: none; }
+  #jump.on { background: var(--lit); border-color: var(--gold); color: var(--gold); transform: scale(.95); }
+
+  /* portrait: the game needs a wide screen */
+  #rotate { position: fixed; inset: 0; z-index: 20; background: #0b0810; color: var(--paper); flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center; padding: 24px; }
+  body.touch.portrait #rotate { display: flex; }
+  #rotate svg { width: 84px; height: 84px; animation: tilt 2.4s ease-in-out infinite; }
+  #rotate b { font: 900 clamp(22px, 7vw, 32px)/1.15 "Arial Black", Impact, sans-serif; text-transform: uppercase; }
+  #rotate span { color: #a99db6; font-size: 15px; max-width: 28ch; line-height: 1.45; }
+  @keyframes tilt { 0%, 15% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
+
+  /* on-screen keyboard helper, for the "what do we call you" screen */
+  #typer { position: fixed; left: 0; right: 0; top: 0; z-index: 30; background: rgba(5, 3, 10, .86); padding: max(10px, env(safe-area-inset-top)) 16px 12px; gap: 10px; align-items: center; justify-content: center; }
+  body.touch #typer.open { display: flex; }
+  #typer input { flex: 1; max-width: 360px; font: 700 18px/1 inherit; padding: 13px 14px; border-radius: 10px; border: 2px solid var(--gold); background: #110b1a; color: var(--paper); -webkit-user-select: text; user-select: text; touch-action: auto; }
+  #typer button { font: 900 14px/1 inherit; letter-spacing: .14em; text-transform: uppercase; padding: 14px 18px; border-radius: 10px; border: 0; cursor: pointer; touch-action: manipulation; }
+  #typer .ok { background: linear-gradient(90deg, #e11d48, #ff8a3d); color: #1a0a14; }
+  #typer .no { background: #241a30; color: var(--paper); }
 </style>
 </head>
 <body>
 <iframe id="game" src="game.html" title="Don't Even Bother" allow="autoplay; gamepad"></iframe>
+
+<div id="pad" aria-label="Touch controls">
+  <div class="side l">
+    <div class="row">
+      <button class="btn" data-tap="pause" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.2" height="14" rx="1"/><rect x="13.8" y="5" width="4.2" height="14" rx="1"/></svg></button>
+      <button class="btn" data-tap="back" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 7 12l8 7"/></svg></button>
+    </div>
+    <div id="dpad" aria-label="Move left or right">
+      <div class="dh" id="dl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3 5 12l12 9z"/></svg></div>
+      <div class="dh" id="dr"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 3l12 9-12 9z"/></svg></div>
+    </div>
+  </div>
+  <div class="side r">
+    <div class="row">
+      <button class="btn" data-tap="restart" aria-label="Restart from checkpoint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg></button>
+      <button class="btn" id="kbd" aria-label="Type"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.1M10 10h.1M13.5 10h.1M17 10h.1M7 14h10"/></svg></button>
+      <button class="btn" id="fs" aria-label="Full screen" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+    <button id="jump" aria-label="Jump"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 21 18H3z"/></svg>JUMP</button>
+  </div>
+</div>
+
+<div id="rotate"><svg viewBox="0 0 64 64" fill="none" stroke="#f3ecdf" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="19" y="6" width="26" height="46" rx="5"/><path d="M28 46h8"/><path d="M52 24c4 3 6 7 6 11M10 40c-4-3-6-7-6-11"/></svg><b>Turn your phone sideways</b><span>Don't Even Bother is played in landscape.</span></div>
+
+<div id="typer"><input id="name" maxlength="12" placeholder="Type your name" autocomplete="off" autocapitalize="words" enterkeyhint="done"><button class="ok" id="nameok">Done</button><button class="no" id="nameno">Cancel</button></div>
+
 <script>
-/* The game runs in a 1280x720 frame that never resizes: the engine picks its drawing scale once, at start, and
-   keeps it if its window changes later (which left it small inside black bars). This page scales the frame to
-   fit the browser window instead, in any window size and in full screen. */
 (function () {
-  var f = document.getElementById("game"), de = document.documentElement;
-  var sw = 1280, sh = 720;   // the size the game is built for (its own 16:9 canvas)
-  f.style.width = sw + "px"; f.style.height = sh + "px";
-  function fit() {
-    var w = window.innerWidth || de.clientWidth, h = window.innerHeight || de.clientHeight, k = Math.min(w / sw, h / sh);
-    f.style.transform = "translate(-50%,-50%) scale(" + k + ")";
+  var $ = function (i) { return document.getElementById(i); };
+  var frame = $("game"), body = document.body, de = document.documentElement;
+  var qs = new URLSearchParams(location.search);
+  var coarse = (window.matchMedia && matchMedia("(hover: none) and (pointer: coarse)").matches) || qs.get("controls") === "1";
+  if (qs.get("controls") === "0") coarse = false;
+  body.classList.toggle("touch", coarse);
+
+  /* ================= placing the game =================
+     The game runs in a 1280x720 frame that never resizes (its engine picks its drawing scale once, at start).
+     This page scales the frame to fit: the whole window on a computer, or the space between the two control
+     columns on a phone, so the controls sit beside the game and never cover it. */
+  var left = document.querySelector(".side.l"), right = document.querySelector(".side.r");
+  function layout() {
+    var W = window.innerWidth || de.clientWidth, H = window.innerHeight || de.clientHeight, lw = 0, rw = 0;
+    if (coarse) { lw = left.offsetWidth; rw = right.offsetWidth; body.classList.toggle("portrait", W < H); }
+    var rwid = Math.max(W - lw - rw, 1), k = Math.min(rwid / 1280, H / 720);
+    if (!(k > 0)) k = 0.1;
+    frame.style.transform = "translate(" + (lw + (rwid - 1280 * k) / 2) + "px," + ((H - 720 * k) / 2) + "px) scale(" + k + ")";
+    if (Math.abs(k - lastK) > 0.005) { lastK = k; tellFrame(); }
   }
-  fit(); window.addEventListener("resize", fit); setInterval(fit, 700);
-  function focusGame() { try { f.focus(); } catch (e) {} }
-  f.addEventListener("load", focusGame); window.addEventListener("focus", focusGame);
-  /* the game's own fullscreen setting is forwarded here */
-  window.addEventListener("message", function (e) {
-    var d = e.data; if (!d || d.deb !== "fullscreen") return;
-    try { if (d.on) { if (!document.fullscreenElement) de.requestFullscreen(); } else if (document.fullscreenElement) document.exitFullscreen(); } catch (x) {}
+  var lastK = 0;
+  function tellFrame() { try { frame.contentWindow.postMessage({ deb: "ui", k: lastK }, "*"); } catch (e) {} }
+  layout(); addEventListener("resize", layout); addEventListener("orientationchange", function () { setTimeout(layout, 200); }); setInterval(layout, 700);
+  if (window.visualViewport) visualViewport.addEventListener("resize", layout);
+  frame.addEventListener("load", function () { try { frame.focus(); } catch (e) {} releaseAll(); tellFrame(); setTimeout(tellFrame, 400); });
+  addEventListener("focus", function () { try { frame.focus(); } catch (e) {} });
+
+  /* ================= keys sent into the game ================= */
+  var K = {
+    left:    { key: "ArrowLeft",  code: "ArrowLeft",  kc: 37 },
+    right:   { key: "ArrowRight", code: "ArrowRight", kc: 39 },
+    jump:    { key: "ArrowUp",    code: "ArrowUp",    kc: 38 },   /* jump + "up" in the game; not Space, which also types a space in the name box */
+    pause:   { key: "p",          code: "KeyP",       kc: 80 },
+    restart: { key: "r",          code: "KeyR",       kc: 82 },
+    back:    { key: "Escape",     code: "Escape",     kc: 27 },
+    enter:   { key: "Enter",      code: "Enter",      kc: 13 },
+    bksp:    { key: "Backspace",  code: "Backspace",  kc: 8 }
+  };
+  function target() { var w = frame.contentWindow, d = w && w.document; if (!d) return null; return { w: w, t: d.getElementById("canvas") || d }; }
+  function send(type, k, text) {
+    var o = target(); if (!o) return;
+    try {
+      var e = new o.w.KeyboardEvent(type, { key: text || k.key, code: k.code || "", bubbles: true, cancelable: true, composed: true, shiftKey: !!(text && text !== text.toLowerCase()) });
+      var code = type === "keypress" ? (text || k.key).charCodeAt(0) : k.kc;
+      Object.defineProperty(e, "keyCode", { value: code }); Object.defineProperty(e, "which", { value: code });
+      Object.defineProperty(e, "charCode", { value: type === "keypress" ? code : 0 });
+      o.t.dispatchEvent(e);
+    } catch (err) {}
+  }
+  var held = {}, downAt = {}, pend = {}, jumpEl = $("jump"), jumpId = null, MIN_HOLD = 70;
+  /* A press always lasts at least MIN_HOLD ms: a quick tap can otherwise press and release inside one game frame,
+     and the game (which reads held keys once per frame) would never notice it. */
+  function press(name) {
+    if (pend[name]) { clearTimeout(pend[name]); pend[name] = null; return; }     /* released a moment ago but still held down: just keep holding */
+    if (held[name]) return;
+    held[name] = true; downAt[name] = Date.now(); send("keydown", K[name]);
+    if (navigator.vibrate) { try { navigator.vibrate(6); } catch (e) {} }
+  }
+  function release(name) {
+    if (!held[name] || pend[name]) return;
+    var wait = MIN_HOLD - (Date.now() - downAt[name]);
+    function up() { pend[name] = null; held[name] = false; send("keyup", K[name]); }
+    if (wait > 0) pend[name] = setTimeout(up, wait); else up();
+  }
+  function tap(name) { press(name); release(name); }
+  function releaseAll() {                         /* immediately, with no minimum: used when focus is lost or the page changes */
+    Object.keys(held).forEach(function (n) { if (pend[n]) { clearTimeout(pend[n]); pend[n] = null; } if (held[n]) { held[n] = false; send("keyup", K[n]); } });
+    dir = null; dl.classList.remove("on"); dr.classList.remove("on"); jumpEl.classList.remove("on"); jumpId = null; dpId = null;
+  }
+  function refocus() { try { frame.contentWindow.focus(); } catch (e) {} }
+  ["pointerup", "pointercancel"].forEach(function (t) { document.getElementById("pad").addEventListener(t, function () { setTimeout(refocus, 0); }, true); });
+  addEventListener("blur", releaseAll); addEventListener("pagehide", releaseAll);
+  document.addEventListener("visibilitychange", function () { if (document.hidden) releaseAll(); });
+
+  /* ================= the pad: one left/right control that follows the thumb ================= */
+  var dpad = $("dpad"), dl = $("dl"), dr = $("dr"), dpId = null, dir = null;
+  function setDir(d) {
+    dir = d;
+    if (d === "left") { release("right"); press("left"); } else if (d === "right") { release("left"); press("right"); } else { release("left"); release("right"); }
+    dl.classList.toggle("on", d === "left"); dr.classList.toggle("on", d === "right");
+  }
+  function dirAt(x) {
+    var r = dpad.getBoundingClientRect(), t = (x - r.left) / r.width;
+    if (t < 0.46) return "left";
+    if (t > 0.54) return "right";
+    return dir;                                  /* a small dead zone in the middle, so a thumb resting there doesn't flicker */
+  }
+  dpad.addEventListener("pointerdown", function (e) { e.preventDefault(); if (dpId !== null) return; dpId = e.pointerId; try { dpad.setPointerCapture(e.pointerId); } catch (x) {} setDir(dirAt(e.clientX)); wake(); });
+  dpad.addEventListener("pointermove", function (e) { if (e.pointerId === dpId) setDir(dirAt(e.clientX)); });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (t) {
+    dpad.addEventListener(t, function (e) { if (e.pointerId === dpId) { dpId = null; setDir(null); } });
   });
+
+  /* ================= jump: its own finger, so it works while the pad is held ================= */
+  jumpEl.addEventListener("pointerdown", function (e) { e.preventDefault(); if (jumpId !== null) return; jumpId = e.pointerId; try { jumpEl.setPointerCapture(e.pointerId); } catch (x) {} jumpEl.classList.add("on"); press("jump"); wake(); });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (t) {
+    jumpEl.addEventListener(t, function (e) { if (e.pointerId === jumpId) { jumpId = null; jumpEl.classList.remove("on"); release("jump"); } });
+  });
+
+  /* ================= small buttons: pause, back, restart ================= */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-tap]"), function (b) {
+    b.addEventListener("pointerdown", function (e) { e.preventDefault(); b.classList.add("on"); tap(b.getAttribute("data-tap")); wake(); });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(function (t) { b.addEventListener(t, function () { b.classList.remove("on"); }); });
+  });
+
+  /* ================= typing a name ================= */
+  var typer = $("typer"), nameIn = $("name");
+  function openTyper() { typer.classList.add("open"); setTimeout(function () { nameIn.focus(); }, 30); }
+  function closeTyper() { typer.classList.remove("open"); nameIn.blur(); try { frame.focus(); } catch (e) {} }
+  function typeText(s, done) {
+    var seq = []; for (var i = 0; i < 14; i++) seq.push(["bksp"]);      /* clear whatever is already in the box */
+    s.slice(0, 12).split("").forEach(function (c) { seq.push(["char", c]); });
+    seq.push(["enter"]); var n = 0;
+    (function next() {
+      if (n >= seq.length) return done && done();
+      var s2 = seq[n++];
+      if (s2[0] === "char") { var c = s2[1], up = c.toUpperCase(), letter = /[a-z]/i.test(c);
+        var k = { key: c, code: letter ? "Key" + up : "", kc: letter ? up.charCodeAt(0) : c.charCodeAt(0) }; send("keydown", k, c); send("keypress", k, c); send("keyup", k, c); }
+      else { var kk = K[s2[0]]; send("keydown", kk); send("keyup", kk); }
+      setTimeout(next, 16);
+    })();
+  }
+  $("kbd").addEventListener("pointerdown", function (e) { e.preventDefault(); openTyper(); });
+  $("nameno").addEventListener("click", closeTyper);
+  $("nameok").addEventListener("click", function () { var v = nameIn.value.trim(); closeTyper(); typeText(v, function () { nameIn.value = ""; }); });
+  nameIn.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); $("nameok").click(); } });
+
+  /* ================= full screen (Android and iPad; iPhone's Safari does not allow it) ================= */
+  var fs = $("fs"), rfs = de.requestFullscreen || de.webkitRequestFullscreen;
+  function inFs() { return document.fullscreenElement || document.webkitFullscreenElement; }
+  function lockLandscape() { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () {}); } catch (e) {} }
+  function goFs() {
+    if (inFs()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    try { var p = rfs.call(de); if (p && p.then) p.then(lockLandscape, function () {}); else lockLandscape(); } catch (e) {}
+  }
+  if (rfs && coarse) { fs.hidden = false; fs.addEventListener("pointerdown", function (e) { e.preventDefault(); goFs(); }); }
+  document.addEventListener("fullscreenchange", function () { setTimeout(layout, 150); }); document.addEventListener("webkitfullscreenchange", function () { setTimeout(layout, 150); });
+  /* the game's own Fullscreen setting is forwarded here (the game frame itself never changes size) */
+  addEventListener("message", function (e) {
+    var d = e.data; if (!d || d.deb !== "fullscreen") return;
+    try { if (d.on) { if (!inFs() && rfs) rfs.call(de); } else if (inFs()) goFs(); } catch (x) {}
+  });
+
+  /* keep the screen awake while playing */
+  var lock = null;
+  function wake() { if (lock || !navigator.wakeLock) return; try { navigator.wakeLock.request("screen").then(function (l) { lock = l; l.addEventListener("release", function () { lock = null; }); }, function () {}); } catch (e) {} }
+
+  /* stop the browser from scrolling, zooming or pulling to refresh while playing */
+  if (coarse) {
+    ["touchmove", "gesturestart", "gesturechange", "gestureend"].forEach(function (t) {
+      document.addEventListener(t, function (e) { if (e.target === nameIn) return; e.preventDefault(); }, { passive: false });
+    });
+    document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  }
 })();
 </script>
 </body>

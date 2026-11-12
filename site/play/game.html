@@ -6,6 +6,20 @@
   Element.prototype.requestFullscreen = function () { return ask(true); };
   Document.prototype.exitFullscreen = function () { return ask(false); };
 })();
+</script><script>
+// The game pauses itself when its window loses focus. Tapping the on-screen controls (which live in the page around
+// the game) moves focus out of this frame, which would pause the game on every touch. So ignore a blur while the
+// outer page still has focus; a real switch to another app or tab (where nothing in the page has focus) still pauses.
+window.addEventListener("blur", function (e) {
+  try { if (window.parent !== window && window.parent.document.hasFocus()) e.stopImmediatePropagation(); } catch (x) {}
+}, true);
+// The page around the game says how much the game frame is scaled down (a phone shows it small).
+// Grow the loading screen's text and PLAY button to compensate, so they stay readable and easy to tap.
+window.addEventListener("message", function (e) {
+  var d = e.data; if (!d || d.deb !== "ui") return;
+  var k = +d.k || 1, s = document.documentElement.style;
+  s.setProperty("--ui", Math.max(1, Math.min(2, 0.62 / k))); s.setProperty("--btn", Math.max(1, Math.min(2.6, 1 / k)));
+});
 </script><script src="https://pygame-web.github.io/cdn/0.9.3/pythons.js" type=module id="site" data-python="python3.12" data-LINES=42 data-COLUMNS=132 data-os="vtx,snd,gui" async defer>#<!--
 
 print("""
@@ -52,7 +66,7 @@ async def custom_site():
                 zip_ref.extractall(appdir.as_posix())
     else:
         import tarfile
-        async with platform.fopen("deb-v18.tar.gz", "rb") as archive:
+        async with platform.fopen("deb-v19.tar.gz", "rb") as archive:
             tar = tarfile.open(fileobj=archive, mode="r:gz")
             tar.extractall(path=appdir.as_posix(), filter='tar')
             tar.close()
@@ -199,7 +213,7 @@ function show_infobox() {
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="preconnect" href="https://pygame-web.github.io" crossorigin>
-    <link rel="preload" href="deb-v18.tar.gz" as="fetch" crossorigin="anonymous">
+    <link rel="preload" href="deb-v19.tar.gz" as="fetch" crossorigin="anonymous">
 
     <style>
         #status {
@@ -320,24 +334,24 @@ function show_infobox() {
   #dbl .logo small{display:block;margin-top:.9em;font:800 max(.2em,10px)/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.55em;color:#e11d48;text-shadow:none}
   #dbl .card{max-width:min(560px,100%);min-height:118px;padding:16px 22px;background:rgba(14,10,22,.62);border-left:3px solid #ff8a3d;border-radius:0 10px 10px 0;backdrop-filter:blur(6px);transition:opacity .4s,transform .4s}
   #dbl .card.swap{opacity:0;transform:translateY(8px)}
-  #dbl .card b{display:block;font-weight:800;font-size:clamp(17px,2vw,22px);line-height:1.25}
-  #dbl .card p{margin:6px 0 0;font-size:clamp(13px,1.4vw,16px);color:#ece4f3;line-height:1.45}
-  #dbl .card small{display:block;margin-top:6px;font-size:13px;color:#a99db6}
-  #dbl .status{margin:clamp(14px,3vh,28px) 0 30px;min-height:1.4em;font-size:clamp(15px,1.8vw,22px);font-weight:600}
+  #dbl .card b{display:block;font-weight:800;font-size:calc(clamp(17px,2vw,22px)*var(--ui,1));line-height:1.25}
+  #dbl .card p{margin:6px 0 0;font-size:calc(clamp(13px,1.4vw,16px)*var(--ui,1));color:#ece4f3;line-height:1.45}
+  #dbl .card small{display:block;margin-top:6px;font-size:calc(13px*var(--ui,1));color:#a99db6}
+  #dbl .status{margin:clamp(14px,3vh,28px) 0 30px;min-height:1.4em;font-size:calc(clamp(15px,1.8vw,22px)*var(--ui,1));font-weight:600}
   #dbl .bar{position:relative;height:4px;background:rgba(255,255,255,.22);border-radius:2px}
   #dbl .fill{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);background:#ff8a3d;border-radius:2px}
   #dbl .blank{position:absolute;top:-23px;left:0;width:20px;height:20px;margin-left:-10px;border-radius:5px 5px 4px 4px;background:#f6efe2;box-shadow:inset 0 -5px 0 #ddd3c2;animation:dbl-hop .55s infinite cubic-bezier(.3,.8,.5,1)}
   #dbl .blank::before{content:"";position:absolute;left:4px;top:5px;width:3px;height:7px;background:#100a16;box-shadow:8px 0 0 #100a16}
   #dbl .blank::after{content:"";position:absolute;left:-1px;right:-1px;top:12px;height:4px;background:#e11d48}
   @keyframes dbl-hop{45%{transform:translateY(-9px)}}
-  #dbl .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:22px;font-size:14px;color:#d8cfe2}
+  #dbl .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:22px;font-size:calc(14px*var(--ui,1));color:#d8cfe2}
   #dbl .pct{font:900 clamp(34px,4.6vw,58px)/.9 var(--disp);color:#f3ecdf;font-variant-numeric:tabular-nums}
   #dbl .pct::after{content:"%"}
-  #dbl .go{display:none;padding:15px 52px;border:0;border-radius:999px;font:900 18px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.3em;text-transform:uppercase;color:#1a0a14;cursor:pointer;
+  #dbl .go{display:none;padding:calc(15px*var(--btn,1)) calc(52px*var(--btn,1));border:0;border-radius:999px;font:900 calc(18px*var(--btn,1))/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.3em;text-transform:uppercase;color:#1a0a14;cursor:pointer;
     background:linear-gradient(90deg,#e11d48,#ff8a3d);box-shadow:0 0 0 0 rgba(255,122,69,.5);animation:dbl-p 1.3s infinite;transition:transform .1s}
   #dbl .go:hover{transform:scale(1.04)}#dbl .go:active{transform:scale(.97)}
   @keyframes dbl-p{70%{box-shadow:0 0 0 16px rgba(255,122,69,0)}}
-  #dbl .hint{display:none;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#a99db6;margin-top:8px;text-align:center}
+  #dbl .hint{display:none;font-size:calc(10px*var(--ui,1));letter-spacing:.22em;text-transform:uppercase;color:#a99db6;margin-top:8px;text-align:center}
   @media (max-width:640px){#dbl .foot{flex-wrap:wrap}#dbl .go{order:3;width:100%}}
   @media (prefers-reduced-motion:reduce){#dbl *{animation:none!important}}
 </style>
@@ -672,7 +686,7 @@ frameborder="1"
         // ---------- progress: the game archive is a real download ----------
         function raise(t) { target = Math.max(target, Math.min(t, 100)); }
         var ARCHIVE_SHARE = 35;
-        fetch("deb-v18.tar.gz").then(function (r) {
+        fetch("deb-v19.tar.gz").then(function (r) {
             var total = +r.headers.get("content-length") || 0, got = 0;
             if (!r.body || !r.body.getReader) return r.arrayBuffer();
             var rd = r.body.getReader();
