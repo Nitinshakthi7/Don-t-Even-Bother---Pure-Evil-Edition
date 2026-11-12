@@ -10,6 +10,13 @@
 // The game pauses itself when its window loses focus. Tapping the on-screen controls (which live in the page around
 // the game) moves focus out of this frame, which would pause the game on every touch. So ignore a blur while the
 // outer page still has focus; a real switch to another app or tab (where nothing in the page has focus) still pauses.
+// Quitting from the game's menu sends "deb-exit" up to the page around it, which goes back to the landing page. The
+// engine asks "leave this page?" on the way out; that question makes no sense for a deliberate quit, so mute it.
+window.addEventListener("beforeunload", function (e) { if (window.__leaving) e.stopImmediatePropagation(); }, true);
+window.addEventListener("message", function (e) {
+  if (e.data !== "deb-exit" || window.parent !== window) return;      // opened on its own: go to the landing page here
+  window.__leaving = true; location.href = "../";
+});
 window.addEventListener("blur", function (e) {
   try { if (window.parent !== window && window.parent.document.hasFocus()) e.stopImmediatePropagation(); } catch (x) {}
 }, true);
@@ -66,7 +73,7 @@ async def custom_site():
                 zip_ref.extractall(appdir.as_posix())
     else:
         import tarfile
-        async with platform.fopen("deb-v25.tar.gz", "rb") as archive:
+        async with platform.fopen("deb-v26.tar.gz", "rb") as archive:
             tar = tarfile.open(fileobj=archive, mode="r:gz")
             tar.extractall(path=appdir.as_posix(), filter='tar')
             tar.close()
@@ -213,7 +220,7 @@ function show_infobox() {
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="preconnect" href="https://pygame-web.github.io" crossorigin>
-    <link rel="preload" href="deb-v25.tar.gz" as="fetch" crossorigin="anonymous">
+    <link rel="preload" href="deb-v26.tar.gz" as="fetch" crossorigin="anonymous">
 
     <style>
         #status {
@@ -686,7 +693,7 @@ frameborder="1"
         // ---------- progress: the game archive is a real download ----------
         function raise(t) { target = Math.max(target, Math.min(t, 100)); }
         var ARCHIVE_SHARE = 35;
-        fetch("deb-v25.tar.gz").then(function (r) {
+        fetch("deb-v26.tar.gz").then(function (r) {
             var total = +r.headers.get("content-length") || 0, got = 0;
             if (!r.body || !r.body.getReader) return r.arrayBuffer();
             var rd = r.body.getReader();

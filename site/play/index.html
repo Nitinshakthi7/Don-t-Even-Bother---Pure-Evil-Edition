@@ -229,6 +229,10 @@
   document.addEventListener("fullscreenchange", function () { setTimeout(layout, 150); }); document.addEventListener("webkitfullscreenchange", function () { setTimeout(layout, 150); });
   /* the game's own Fullscreen setting is forwarded here (the game frame itself never changes size) */
   addEventListener("message", function (e) {
+    if (e.data === "deb-exit") {                                  /* QUIT in the game: back to the landing page */
+      try { frame.contentWindow.__leaving = true; } catch (x) {}
+      location.href = "../"; return;
+    }
     var d = e.data; if (!d || d.deb !== "fullscreen") return;
     try { if (d.on) { if (!inFs() && rfs) rfs.call(de); } else if (inFs()) goFs(); } catch (x) {}
   });
