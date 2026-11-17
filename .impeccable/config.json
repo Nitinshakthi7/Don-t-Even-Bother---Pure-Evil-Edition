@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "site/index.html"
+        ],
+        "createdAt": "2026-11-17T03:55:39.897Z",
+        "reason": "Claude: false positive - rendered preview shows the story section has 99px vertical padding and its .wrap sits 20px in from each side, so no text touches an edge"
+      }
+    ]
+  }
+}

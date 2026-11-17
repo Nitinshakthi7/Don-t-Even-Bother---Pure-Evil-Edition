@@ -229,7 +229,7 @@ function show_infobox() {
             margin-top: 20px;
             margin-left: 30px;
             font-weight: bold;
-            color: rgb(120, 120, 120);
+            color: rgb(140, 140, 140);
         }
 
         #progress {
@@ -239,8 +239,8 @@ function show_infobox() {
 
         #infobox {
             position: fixed; /* center relative to viewport */
-            background: green;
-            color: blue;
+            background: #0b0810;
+            color: #f3ecdf;
             font-weight: bold;
             padding: 12px 24px;
  /*           display: none; */
@@ -270,7 +270,7 @@ function show_infobox() {
         }
 
         body {
-            font-family: arial;
+            font-family: "Helvetica Neue", Helvetica, "Liberation Sans", Arial, sans-serif;
             margin: 0;
             padding: none;
             background-color:powderblue;
@@ -338,7 +338,7 @@ function show_infobox() {
   #dbl .pane{position:absolute;left:max(24px,5vw);right:max(24px,5vw);bottom:max(26px,5vh)}
   #dbl .logo{font-family:var(--disp);text-transform:uppercase;line-height:.86;font-size:clamp(34px,5.4vw,78px);margin-bottom:clamp(14px,3vh,30px);color:#f3ecdf;text-shadow:.045em .045em 0 #5e0d22}
   #dbl .logo span{display:block}#dbl .logo .b{font-size:1.66em}
-  #dbl .logo small{display:block;margin-top:.9em;font:800 max(.2em,10px)/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.55em;color:#e11d48;text-shadow:none}
+  #dbl .logo small{display:block;margin-top:.9em;font:800 max(.2em,10px)/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.55em;color:#f2456a;text-shadow:none}
   #dbl .card{max-width:min(560px,100%);min-height:118px;padding:16px 22px;background:rgba(14,10,22,.62);border-left:3px solid #ff8a3d;border-radius:0 10px 10px 0;backdrop-filter:blur(6px);transition:opacity .4s,transform .4s}
   #dbl .card.swap{opacity:0;transform:translateY(8px)}
   #dbl .card b{display:block;font-weight:800;font-size:calc(clamp(17px,2vw,22px)*var(--ui,1));line-height:1.25}
@@ -349,13 +349,13 @@ function show_infobox() {
   #dbl .fill{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);background:#ff8a3d;border-radius:2px}
   #dbl .blank{position:absolute;top:-23px;left:0;width:20px;height:20px;margin-left:-10px;border-radius:5px 5px 4px 4px;background:#f6efe2;box-shadow:inset 0 -5px 0 #ddd3c2;animation:dbl-hop .55s infinite cubic-bezier(.3,.8,.5,1)}
   #dbl .blank::before{content:"";position:absolute;left:4px;top:5px;width:3px;height:7px;background:#100a16;box-shadow:8px 0 0 #100a16}
-  #dbl .blank::after{content:"";position:absolute;left:-1px;right:-1px;top:12px;height:4px;background:#e11d48}
+  #dbl .blank::after{content:"";position:absolute;left:-1px;right:-1px;top:12px;height:4px;background:#f2456a}
   @keyframes dbl-hop{45%{transform:translateY(-9px)}}
   #dbl .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:22px;font-size:calc(14px*var(--ui,1));color:#d8cfe2}
   #dbl .pct{font:900 clamp(34px,4.6vw,58px)/.9 var(--disp);color:#f3ecdf;font-variant-numeric:tabular-nums}
   #dbl .pct::after{content:"%"}
-  #dbl .go{display:none;padding:calc(15px*var(--btn,1)) calc(52px*var(--btn,1));border:0;border-radius:999px;font:900 calc(18px*var(--btn,1))/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.3em;text-transform:uppercase;color:#1a0a14;cursor:pointer;
-    background:linear-gradient(90deg,#e11d48,#ff8a3d);box-shadow:0 0 0 0 rgba(255,122,69,.5);animation:dbl-p 1.3s infinite;transition:transform .1s}
+  #dbl .go{display:none;padding:calc(15px*var(--btn,1)) calc(52px*var(--btn,1));border:0;border-radius:999px;font:900 calc(18px*var(--btn,1))/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.3em;text-transform:uppercase;color:#120610;cursor:pointer;
+    background:linear-gradient(90deg,#f0305a,#ff8a3d);box-shadow:0 0 0 0 rgba(255,122,69,.5);animation:dbl-p 1.3s infinite;transition:transform .1s}
   #dbl .go:hover{transform:scale(1.04)}#dbl .go:active{transform:scale(.97)}
   @keyframes dbl-p{70%{box-shadow:0 0 0 16px rgba(255,122,69,0)}}
   #dbl .hint{display:none;font-size:calc(10px*var(--ui,1));letter-spacing:.22em;text-transform:uppercase;color:#a99db6;margin-top:8px;text-align:center}
