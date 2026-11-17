@@ -161,8 +161,8 @@ footer{padding:36px 0;border-top:1px solid var(--line);font-size:12px;letter-spa
 .cform{display:grid;gap:16px;padding:26px;background:var(--card);border:1px solid var(--line);border-radius:12px}
 .cform label{display:grid;gap:8px;font:800 12px/1.2 var(--body);letter-spacing:.18em;text-transform:uppercase;color:#d8cfe2}
 .cform label small{font-weight:600;letter-spacing:.06em;text-transform:none;color:var(--mute);margin-left:6px}
-.cform input,.cform textarea{width:100%;padding:14px 16px;background:#110b1a;border:1px solid #3a2b45;border-radius:8px;color:var(--cream);font:500 16px/1.4 var(--body);letter-spacing:0;text-transform:none;resize:vertical}
-.cform input:focus,.cform textarea:focus{outline:none;border-color:var(--org);box-shadow:0 0 0 3px rgba(255,138,61,.2)}
+.cform input,.cform textarea,.cform select{width:100%;padding:14px 16px;background:#110b1a;border:1px solid #3a2b45;border-radius:8px;color:var(--cream);font:500 16px/1.4 var(--body);letter-spacing:0;text-transform:none;resize:vertical}
+.cform input:focus,.cform textarea:focus,.cform select:focus{outline:none;border-color:var(--org);box-shadow:0 0 0 3px rgba(255,138,61,.2)}
 .cform .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 .crow{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .cform .btn:disabled{opacity:.6;cursor:wait;transform:none}
@@ -327,13 +327,16 @@ html:not(.js) #ld{display:none}
 
 <!-- ============ contact ============ -->
 <section class="contact" id="contact" style="padding-top:0"><div class="wrap">
-  <div class="reveal"><div class="eyebrow">Say hi</div><h2>Beat a level?<br>Found a bug?<br>Tell me.</h2>
-  <p class="lead" style="margin-top:22px">I read everything. Send feedback, tell me which level got you, or just say what you'd like to see in the next game.</p></div>
+  <div class="reveal"><div class="eyebrow">Say hi</div><h2>Beat a level?<br>Found a bug?<br>Got an idea?<br>Tell me.</h2>
+  <p class="lead" style="margin-top:22px">I read everything. Tell me which level got you, report a bug, suggest a trap, a skin or a whole new level, or say what you'd like to see in the next game. Your idea might end up in it.</p></div>
   <div class="cwrap reveal">
     <form class="cform" id="cform" novalidate>
       <label>Your name<input name="name" required maxlength="80" autocomplete="name"></label>
       <label>Your email <small>so I can reply</small><input name="email" type="email" required maxlength="120" autocomplete="email"></label>
-      <label>Message<textarea name="message" required rows="6" maxlength="2000"></textarea></label>
+      <label>What is this about?<select name="topic">
+        <option>Feedback</option><option>Found a bug</option><option>Suggest a new level</option><option>Suggest a feature, trap or skin</option><option>Just saying hi</option>
+      </select></label>
+      <label>Message<textarea name="message" required rows="6" maxlength="2000" placeholder="Your thoughts, your idea, or the level that broke you…"></textarea></label>
       <input type="checkbox" name="botcheck" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
       <div class="crow"><button class="btn main" type="submit" id="csend">Send message</button><p class="cnote" id="cnote" role="status" aria-live="polite"></p></div>
     </form>
@@ -515,13 +518,13 @@ function makeScene(cv) {
   function say(t, c) { note.textContent = t; note.className = "cnote" + (c ? " " + c : ""); }
   form.addEventListener("submit", function (e) {
     e.preventDefault(); if (busy) return;
-    var f = new FormData(form), name = (f.get("name") || "").trim(), email = (f.get("email") || "").trim(), msg = (f.get("message") || "").trim();
+    var f = new FormData(form), name = (f.get("name") || "").trim(), email = (f.get("email") || "").trim(), msg = (f.get("message") || "").trim(), topic = f.get("topic") || "Feedback";
     if (!name || !msg) return say("Please add your name and a message.", "bad");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return say("That email doesn't look right, I need it to reply.", "bad");
     if (KEY.indexOf("HERE") > -1) return say("The contact form isn't switched on yet. Please use Instagram or LinkedIn for now.", "bad");
     busy = true; btn.disabled = true; say("Sending…");
     fetch("https://api.web3forms.com/submit", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ access_key: KEY, subject: "Message from the Don't Even Bother site", from_name: name, name: name, email: email, message: msg, botcheck: f.get("botcheck") ? true : "" }) })
+      body: JSON.stringify({ access_key: KEY, subject: topic + " - Don't Even Bother site", from_name: name, name: name, email: email, topic: topic, message: msg, botcheck: f.get("botcheck") ? true : "" }) })
       .then(function (r) { return r.json(); })
       .then(function (d) { if (d && d.success) { form.reset(); say("Sent! Thanks, I'll reply to your email.", "ok"); setTimeout(function () { busy = false; btn.disabled = false; }, 8000); }
         else throw new Error("fail"); })
